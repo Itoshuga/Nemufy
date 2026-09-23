@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
+import { isServiceAccountActive } from "@/lib/firebase/auth/access";
 import {
   SESSION_COOKIE_NAME,
   SESSION_DURATION_MS,
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
     }
 
     const profile = await ensureUserProfile(decodedToken);
-    if (!profile || profile.accountStatus !== "active") {
+    if (!profile || !isServiceAccountActive(profile.accountStatus)) {
       return NextResponse.json(
         { message: "This account is unavailable." },
         { status: 403 },

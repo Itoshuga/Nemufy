@@ -62,7 +62,7 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
 FIREBASE_ADMIN_STORAGE_BUCKET=
 ```
 
-`storage.rules` currently permits verified users to read catalog media and upload only small image avatars to their own path. Catalog writes require an admin custom claim.
+`storage.rules` permits verified users to read media. Artist avatars/banners, release covers and track audio require either an active direct artist membership or an active label membership plus label/artist relationship with the matching permission. Release and audio uploads are also tied to a Firestore release owned by the managed artist. Managed-media deletion remains server-only.
 
 ## 6. Configure Firebase Admin
 
@@ -151,9 +151,28 @@ The script refuses to touch non-empty catalog collections. `--force` performs id
 pnpm firebase:seed -- --force
 ```
 
-The seed migrates typed mocks into normalized artist, track, release, playlist and category documents with native timestamps and stable IDs.
+The seed migrates typed mocks into normalized artist, track, release, playlist and category documents with native timestamps and stable IDs. It also creates `Midnight Records` and active relations to `Nemu` and `Airi`.
 
-## 11. Deploy rules and indexes
+To attach the seeded artists and label to a real development account, first sign in once, copy its Firebase Auth UID, then run:
+
+```bash
+pnpm firebase:set-capabilities -- --uid=FIREBASE_UID --artist=true --label=true
+pnpm firebase:seed -- --force --owner-uid=FIREBASE_UID
+```
+
+The seed creates owner memberships only when `--owner-uid` is provided. Sign out and back in afterwards so Firebase refreshes the ID token and Nemufy recreates its server session.
+
+## 11. Bootstrap the first administrator
+
+An admin cannot be granted from the browser without an already trusted admin. After the target account has signed in once, bootstrap only the first administrator from a trusted local machine:
+
+```bash
+pnpm firebase:set-capabilities -- --uid=FIREBASE_UID --admin=true
+```
+
+The script updates Firebase Custom Claims and Firestore together and writes an audit record. The user must sign out and back in. All subsequent grants and revocations can be made from `/admin/users/[uid]` and are performed through protected server APIs.
+
+## 12. Deploy rules and indexes
 
 Authenticate the Firebase CLI using an authorized Google account, select the expected project, then review the active target:
 
@@ -166,7 +185,23 @@ This deploys `firestore.rules`, `firestore.indexes.json` and `storage.rules`. Re
 
 The identity used by the CLI must be allowed to inspect enabled Google Cloud services (notably `serviceusage.services.get`) and to update Firestore and Storage rules. A Firebase Admin service account can read or write application data without automatically having these deployment permissions. If the CLI returns a Service Usage `403`, deploy after `firebase login` with a project Owner/Firebase administrator account, or grant only the required deployment roles through Google Cloud IAM.
 
-## 12. Production checklist
+## 13. Required manual sequence
+
+For a new environment, complete these steps in order:
+
+1. Install Java 11+ and confirm `java -version` works; it is required for emulator rule tests.
+2. Enable Email/Password and Google providers, then configure authorized domains.
+3. Create the default Firestore database and Storage bucket.
+4. Put Web SDK values and Admin credentials in `.env.local` or encrypted hosting secrets.
+5. Run `pnpm test:permissions`, `pnpm test:rules`, `pnpm lint`, `pnpm typecheck` and `pnpm build`.
+6. Run `pnpm firebase:deploy:rules` against the intended Firebase project.
+7. Sign in once with the bootstrap account, grant its admin capability with the trusted CLI script, then sign out/in.
+8. Optionally seed development data and owner memberships with `--owner-uid`.
+9. Manually exercise User, Artist Owner, Artist Editor, Label Manager, Admin and Suspended User scenarios before production.
+
+Do not run the seed or deploy command against production until the selected Firebase CLI project has been verified.
+
+## 14. Production checklist
 
 - Set `NEXT_PUBLIC_APP_URL` to the canonical HTTPS origin.
 - Add the production domain to Firebase Authentication authorized domains.

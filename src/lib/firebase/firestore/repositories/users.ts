@@ -13,6 +13,7 @@ import {
   type OnboardingInput,
 } from "@/lib/validation/auth";
 import type { UserDocument, UsernameDocument } from "@/types/firestore";
+import { emptyUserCapabilities, type UserCapabilities } from "@/types/platform";
 
 export class UsernameTakenError extends Error {
   constructor() {
@@ -29,7 +30,33 @@ export async function getUserProfile(
     .doc(uid)
     .get();
 
-  return snapshot.exists ? (snapshot.data() as UserDocument) : null;
+  return snapshot.exists ? normalizeUserDocument(snapshot.data(), uid) : null;
+}
+
+function normalizeUserDocument(
+  value: FirebaseFirestore.DocumentData | undefined,
+  uid: string,
+): UserDocument {
+  const data = value as Partial<UserDocument> | undefined;
+  const legacyCapabilities: UserCapabilities = {
+    artist: data?.role === "artist",
+    label: false,
+    admin: data?.role === "admin",
+  };
+  const capabilities: UserCapabilities = {
+    artist: data?.capabilities?.artist ?? legacyCapabilities.artist,
+    label: data?.capabilities?.label ?? legacyCapabilities.label,
+    admin: data?.capabilities?.admin ?? legacyCapabilities.admin,
+  };
+
+  return {
+    ...(data as UserDocument),
+    uid,
+    capabilities,
+    subscriptionPlan: data?.subscriptionPlan ?? "free",
+    subscriptionStatus: data?.subscriptionStatus ?? "inactive",
+    accountStatus: data?.accountStatus ?? "active",
+  };
 }
 
 export async function ensureUserProfile(token: DecodedIdToken) {
@@ -46,7 +73,9 @@ export async function ensureUserProfile(token: DecodedIdToken) {
         usernameNormalized: null,
         displayName: token.name ?? null,
         avatarUrl: token.picture ?? null,
-        role: "listener",
+        capabilities: { ...emptyUserCapabilities },
+        subscriptionPlan: "free",
+        subscriptionStatus: "inactive",
         accountStatus: "active",
         onboardingCompleted: false,
         createdAt: now,
@@ -58,9 +87,14 @@ export async function ensureUserProfile(token: DecodedIdToken) {
       return;
     }
 
+    const existingUser = normalizeUserDocument(snapshot.data(), token.uid);
     transaction.update(userReference, {
       lastLoginAt: now,
       updatedAt: now,
+      capabilities: existingUser.capabilities,
+      subscriptionPlan: existingUser.subscriptionPlan,
+      subscriptionStatus: existingUser.subscriptionStatus,
+      accountStatus: existingUser.accountStatus,
       ...(snapshot.get("avatarUrl")
         ? {}
         : { avatarUrl: token.picture ?? null }),
@@ -68,6 +102,50 @@ export async function ensureUserProfile(token: DecodedIdToken) {
   });
 
   return getUserProfile(token.uid);
+}
+
+export type UserListItem = Pick<
+  UserDocument,
+  | "uid"
+  | "username"
+  | "displayName"
+  | "avatarUrl"
+  | "accountStatus"
+  | "capabilities"
+  | "subscriptionPlan"
+  | "subscriptionStatus"
+  | "createdAt"
+  | "lastLoginAt"
+> & { email: string | null; emailVerified: boolean };
+
+export async function listUsers(limit = 100): Promise<UserListItem[]> {
+  const firestoreSnapshot = await getFirebaseAdminFirestore()
+    .collection(collections.users)
+    .orderBy("createdAt", "desc")
+    .limit(limit)
+    .get();
+  const profiles = firestoreSnapshot.docs.map((snapshot) =>
+    normalizeUserDocument(snapshot.data(), snapshot.id),
+  );
+  const auth = getFirebaseAdminAuth();
+  const authUsers = await Promise.all(
+    profiles.map((profile) => auth.getUser(profile.uid).catch(() => null)),
+  );
+
+  return profiles.map((profile, index) => ({
+    uid: profile.uid,
+    username: profile.username,
+    displayName: profile.displayName,
+    avatarUrl: profile.avatarUrl,
+    accountStatus: profile.accountStatus,
+    capabilities: profile.capabilities,
+    subscriptionPlan: profile.subscriptionPlan,
+    subscriptionStatus: profile.subscriptionStatus,
+    createdAt: profile.createdAt,
+    lastLoginAt: profile.lastLoginAt,
+    email: authUsers[index]?.email ?? null,
+    emailVerified: authUsers[index]?.emailVerified ?? false,
+  }));
 }
 
 export async function completeUserOnboarding(

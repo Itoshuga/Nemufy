@@ -30,6 +30,28 @@ beforeEach(async () => {
       uid: "alice",
       accountStatus: "active",
     });
+    await setDoc(doc(firestore, "artistMemberships/alice_artist-a"), {
+      userId: "alice",
+      artistId: "artist-a",
+      role: "owner",
+      status: "active",
+      permissions: { manageTeam: true },
+    });
+    await setDoc(doc(firestore, "artistMemberships/bob_artist-a"), {
+      userId: "bob",
+      artistId: "artist-a",
+      role: "editor",
+      status: "active",
+      permissions: { manageTeam: false },
+    });
+    await setDoc(doc(firestore, "auditLogs/log-1"), {
+      actorUserId: "admin",
+      action: "role.grant",
+      targetType: "user",
+      targetId: "alice",
+      context: {},
+      createdAt: Timestamp.now(),
+    });
   });
 });
 
@@ -64,7 +86,7 @@ describe("catalog security", () => {
     await assertSucceeds(getDoc(doc(firestore, "tracks/track-public")));
   });
 
-  test("only admins can write catalog documents", async () => {
+  test("catalog writes remain server-only, even for admin clients", async () => {
     const listenerFirestore = verifiedContext("alice").firestore();
     const adminFirestore = testEnvironment
       .authenticatedContext("admin", {
@@ -79,10 +101,61 @@ describe("catalog security", () => {
         status: "published",
       }),
     );
-    await assertSucceeds(
+    await assertFails(
       setDoc(doc(adminFirestore, "tracks/track-new"), {
         title: "Admin track",
         status: "published",
+      }),
+    );
+  });
+
+  test("only admins can read immutable audit logs", async () => {
+    const listenerFirestore = verifiedContext("alice").firestore();
+    const adminFirestore = testEnvironment
+      .authenticatedContext("admin", {
+        email_verified: true,
+        admin: true,
+      })
+      .firestore();
+
+    await assertFails(getDoc(doc(listenerFirestore, "auditLogs/log-1")));
+    await assertSucceeds(getDoc(doc(adminFirestore, "auditLogs/log-1")));
+    await assertFails(
+      setDoc(doc(adminFirestore, "auditLogs/log-2"), {
+        actorUserId: "admin",
+      }),
+    );
+  });
+});
+
+describe("membership security", () => {
+  test("members can read their membership and team managers can read the team", async () => {
+    const aliceFirestore = verifiedContext("alice").firestore();
+    const bobFirestore = verifiedContext("bob").firestore();
+    const strangerFirestore = verifiedContext("stranger").firestore();
+
+    await assertSucceeds(
+      getDoc(doc(aliceFirestore, "artistMemberships/alice_artist-a")),
+    );
+    await assertSucceeds(
+      getDoc(doc(aliceFirestore, "artistMemberships/bob_artist-a")),
+    );
+    await assertSucceeds(
+      getDoc(doc(bobFirestore, "artistMemberships/bob_artist-a")),
+    );
+    await assertFails(
+      getDoc(doc(strangerFirestore, "artistMemberships/alice_artist-a")),
+    );
+  });
+
+  test("membership writes remain server-only", async () => {
+    const firestore = verifiedContext("alice").firestore();
+    await assertFails(
+      setDoc(doc(firestore, "artistMemberships/alice_artist-b"), {
+        userId: "alice",
+        artistId: "artist-b",
+        role: "owner",
+        status: "active",
       }),
     );
   });

@@ -1,10 +1,23 @@
-import { Sparkles, UserRound } from "lucide-react";
+import Link from "next/link";
+import {
+  Building2,
+  LayoutDashboard,
+  Shield,
+  Sparkles,
+  UserRound,
+} from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
 
 export type AppUser = {
   email: string;
   displayName: string;
   username: string | null;
+  capabilities: {
+    isPremium: boolean;
+    isArtist: boolean;
+    isLabelMember: boolean;
+    isAdmin: boolean;
+  };
 };
 
 export function UserMenu({ user }: { user: AppUser }) {
@@ -32,6 +45,36 @@ export function UserMenu({ user }: { user: AppUser }) {
             </p>
           </div>
         </div>
+        <div className="bg-border my-2 h-px" />
+        <nav className="space-y-1" aria-label="Account destinations">
+          <Link
+            href="/profile"
+            className="text-muted-foreground hover:bg-surface-hover hover:text-foreground flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors"
+          >
+            <UserRound className="size-4" /> Profile
+          </Link>
+          {(user.capabilities.isArtist || user.capabilities.isLabelMember) && (
+            <Link
+              href="/studio"
+              className="text-muted-foreground hover:bg-surface-hover hover:text-foreground flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors"
+            >
+              {user.capabilities.isLabelMember ? (
+                <Building2 className="size-4" />
+              ) : (
+                <LayoutDashboard className="size-4" />
+              )}
+              Studio
+            </Link>
+          )}
+          {user.capabilities.isAdmin && (
+            <Link
+              href="/admin"
+              className="text-muted-foreground hover:bg-surface-hover hover:text-foreground flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors"
+            >
+              <Shield className="size-4" /> Admin Panel
+            </Link>
+          )}
+        </nav>
         <div className="bg-border my-2 h-px" />
         <LogoutButton />
       </div>

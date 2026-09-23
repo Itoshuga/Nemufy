@@ -151,7 +151,7 @@ function mapTrack(
     slug: data.slug,
     title: data.title,
     duration: data.durationSeconds,
-    audioUrl: data.audioUrl,
+    audioUrl: data.audioUrl ?? "/audio/quiet-night.wav",
     cover: data.coverUrl ?? undefined,
     releaseId: data.releaseId ?? "",
     primaryArtists: references(data.primaryArtistIds),
@@ -175,7 +175,7 @@ function mapRelease(
     id: snapshot.id,
     slug: data.slug,
     title: data.title,
-    cover: data.coverUrl,
+    cover: data.coverUrl ?? "/images/art/release-placeholder.svg",
     type: data.type.toUpperCase() as Release["type"],
     releaseDate: toIsoString(data.releaseDate),
     artists: data.primaryArtistIds

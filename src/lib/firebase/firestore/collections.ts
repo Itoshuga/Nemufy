@@ -7,6 +7,11 @@ export const collections = {
   playlists: "playlists",
   categories: "categories",
   artistMemberships: "artistMemberships",
+  labels: "labels",
+  labelMemberships: "labelMemberships",
+  labelArtists: "labelArtists",
+  invitations: "invitations",
+  auditLogs: "auditLogs",
 } as const;
 
 export const userSubcollections = {

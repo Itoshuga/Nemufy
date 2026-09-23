@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { after, before, describe, test } from "node:test";
+import { after, before, beforeEach, describe, test } from "node:test";
 import {
   assertFails,
   assertSucceeds,
@@ -7,13 +7,40 @@ import {
   type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
 import { ref, uploadString } from "firebase/storage";
+import { doc, setDoc } from "firebase/firestore";
 
 let testEnvironment: RulesTestEnvironment;
 
 before(async () => {
   testEnvironment = await initializeTestEnvironment({
     projectId: "nemufy-storage-rules-test",
+    firestore: { rules: readFileSync("firestore.rules", "utf8") },
     storage: { rules: readFileSync("storage.rules", "utf8") },
+  });
+});
+
+beforeEach(async () => {
+  await testEnvironment.clearFirestore();
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), "artistMemberships/alice_artist-a"), {
+      userId: "alice",
+      artistId: "artist-a",
+      status: "active",
+      permissions: {
+        manageProfile: true,
+        manageReleases: true,
+        manageTracks: true,
+      },
+    });
+    await setDoc(doc(context.firestore(), "releases/release-a"), {
+      allArtistIds: ["artist-a"],
+      status: "draft",
+    });
+    await setDoc(doc(context.firestore(), "tracks/track-existing"), {
+      allArtistIds: ["artist-a"],
+      releaseId: "release-a",
+      status: "draft",
+    });
   });
 });
 
@@ -71,6 +98,107 @@ describe("storage security", () => {
         {
           contentType: "text/plain",
         },
+      ),
+    );
+  });
+
+  test("artist uploads require an active membership and scoped metadata", async () => {
+    const aliceStorage = verifiedStorage("alice");
+    const bobStorage = verifiedStorage("bob");
+    const metadata = {
+      contentType: "image/png",
+      customMetadata: { artistId: "artist-a" },
+    };
+
+    await assertSucceeds(
+      uploadString(
+        ref(aliceStorage, "artists/artist-a/avatar/avatar.png"),
+        "image",
+        "raw",
+        metadata,
+      ),
+    );
+    await assertFails(
+      uploadString(
+        ref(bobStorage, "artists/artist-a/avatar/avatar.png"),
+        "image",
+        "raw",
+        metadata,
+      ),
+    );
+    await assertFails(
+      uploadString(
+        ref(aliceStorage, "artists/artist-b/avatar/avatar.png"),
+        "image",
+        "raw",
+        metadata,
+      ),
+    );
+  });
+
+  test("audio uploads reject invalid MIME types", async () => {
+    const aliceStorage = verifiedStorage("alice");
+    await assertFails(
+      uploadString(
+        ref(aliceStorage, "tracks/track-a/audio/master.txt"),
+        "not audio",
+        "raw",
+        {
+          contentType: "text/plain",
+          customMetadata: { artistId: "artist-a", releaseId: "release-a" },
+        },
+      ),
+    );
+  });
+
+  test("audio uploads must reference a release owned by the managed artist", async () => {
+    const aliceStorage = verifiedStorage("alice");
+    await assertSucceeds(
+      uploadString(
+        ref(aliceStorage, "tracks/track-a/audio/master.mp3"),
+        "audio",
+        "raw",
+        {
+          contentType: "audio/mpeg",
+          customMetadata: { artistId: "artist-a", releaseId: "release-a" },
+        },
+      ),
+    );
+    await assertFails(
+      uploadString(
+        ref(aliceStorage, "tracks/track-b/audio/master.mp3"),
+        "audio",
+        "raw",
+        {
+          contentType: "audio/mpeg",
+          customMetadata: {
+            artistId: "artist-a",
+            releaseId: "release-other",
+          },
+        },
+      ),
+    );
+  });
+
+  test("custom track covers require access to the existing track", async () => {
+    const metadata = {
+      contentType: "image/webp",
+      customMetadata: { artistId: "artist-a" },
+    };
+    await assertSucceeds(
+      uploadString(
+        ref(verifiedStorage("alice"), "tracks/track-existing/cover/cover.webp"),
+        "image",
+        "raw",
+        metadata,
+      ),
+    );
+    await assertFails(
+      uploadString(
+        ref(verifiedStorage("bob"), "tracks/track-existing/cover/other.webp"),
+        "image",
+        "raw",
+        metadata,
       ),
     );
   });

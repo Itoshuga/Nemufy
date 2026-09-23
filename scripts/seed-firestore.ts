@@ -1,9 +1,16 @@
+import { existsSync } from "node:fs";
 import { cert, getApps, initializeApp } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
 import { getFirestore, Timestamp } from "firebase-admin/firestore";
 import { categories } from "../src/data/mock/categories";
 import { artists, playlists, releases, tracks } from "../src/data/mock/catalog";
+import {
+  defaultLabelArtistPermissions,
+  getArtistPermissions,
+  getLabelPermissions,
+} from "../src/lib/permissions/presets";
 
-process.loadEnvFile?.(".env.local");
+process.loadEnvFile?.(existsSync(".env.local") ? ".env.local" : ".env");
 
 const requiredEnvironment = [
   "FIREBASE_ADMIN_PROJECT_ID",
@@ -31,6 +38,9 @@ const firestore = getFirestore(app);
 const now = Timestamp.now();
 const dryRun = process.argv.includes("--dry-run");
 const force = process.argv.includes("--force");
+const ownerUid = process.argv
+  .find((argument) => argument.startsWith("--owner-uid="))
+  ?.slice("--owner-uid=".length);
 
 async function seedCatalog() {
   const collectionNames = [
@@ -39,6 +49,8 @@ async function seedCatalog() {
     "releases",
     "playlists",
     "categories",
+    "labels",
+    "labelArtists",
   ];
   const existingCounts = Object.fromEntries(
     await Promise.all(
@@ -58,6 +70,9 @@ async function seedCatalog() {
       releases: releases.length,
       playlists: playlists.length,
       categories: categories.length,
+      labels: 1,
+      labelArtists: 2,
+      ownerMemberships: ownerUid ? 2 : 0,
     });
     return;
   }
@@ -78,8 +93,11 @@ async function seedCatalog() {
         slug: artist.slug,
         avatarUrl: artist.avatar,
         bannerUrl: artist.banner,
+        avatarStoragePath: null,
+        bannerStoragePath: null,
         bio: artist.bio,
         verified: artist.verified,
+        status: "active",
         monthlyListeners: artist.monthlyListeners,
         followerCount: artist.followerCount,
         categoryIds: artist.genres.map(toSlug),
@@ -132,7 +150,9 @@ async function seedCatalog() {
         artistCredits,
         durationSeconds: item.duration,
         audioUrl: item.audioUrl,
+        audioStoragePath: null,
         coverUrl: item.cover ?? null,
+        coverStoragePath: null,
         trackNumber: item.trackNumber || null,
         explicit: item.explicit,
         categoryIds: item.categories,
@@ -167,6 +187,7 @@ async function seedCatalog() {
         featuredArtistIds,
         allArtistIds: [...new Set([...primaryArtistIds, ...featuredArtistIds])],
         coverUrl: release.cover,
+        coverStoragePath: null,
         description: release.description ?? null,
         releaseDate: Timestamp.fromDate(new Date(release.releaseDate)),
         status: "published",
@@ -176,6 +197,8 @@ async function seedCatalog() {
         tags: release.tags,
         createdAt: now,
         updatedAt: now,
+        publishedAt: now,
+        archivedAt: null,
         schemaVersion: 1,
       },
       { merge: true },
@@ -221,7 +244,102 @@ async function seedCatalog() {
     );
   }
 
+  batch.set(
+    firestore.collection("labels").doc("label-midnight-records"),
+    {
+      name: "Midnight Records",
+      slug: "midnight-records",
+      logoUrl: null,
+      logoStoragePath: null,
+      bannerUrl: null,
+      bannerStoragePath: null,
+      description:
+        "Independent nocturnal ASMR label for the Nemufy development catalog.",
+      websiteUrl: null,
+      verified: true,
+      status: "active",
+      createdAt: now,
+      updatedAt: now,
+      schemaVersion: 1,
+    },
+    { merge: true },
+  );
+
+  for (const artistId of ["artist-nemu", "artist-airi"]) {
+    batch.set(
+      firestore
+        .collection("labelArtists")
+        .doc(`label-midnight-records_${artistId}`),
+      {
+        labelId: "label-midnight-records",
+        artistId,
+        status: "active",
+        permissions: { ...defaultLabelArtistPermissions },
+        joinedAt: now,
+        endedAt: null,
+        createdAt: now,
+        updatedAt: now,
+        schemaVersion: 1,
+      },
+      { merge: true },
+    );
+  }
+
+  if (ownerUid) {
+    batch.set(
+      firestore.collection("artistMemberships").doc(`${ownerUid}_artist-nemu`),
+      {
+        userId: ownerUid,
+        artistId: "artist-nemu",
+        role: "owner",
+        permissions: getArtistPermissions("owner"),
+        status: "active",
+        invitedBy: null,
+        createdAt: now,
+        updatedAt: now,
+        schemaVersion: 1,
+      },
+      { merge: true },
+    );
+    batch.set(
+      firestore
+        .collection("labelMemberships")
+        .doc(`${ownerUid}_label-midnight-records`),
+      {
+        userId: ownerUid,
+        labelId: "label-midnight-records",
+        role: "owner",
+        permissions: getLabelPermissions("owner"),
+        status: "active",
+        invitedBy: null,
+        createdAt: now,
+        updatedAt: now,
+        schemaVersion: 1,
+      },
+      { merge: true },
+    );
+    batch.set(
+      firestore.collection("users").doc(ownerUid),
+      {
+        capabilities: { artist: true, label: true, admin: false },
+        subscriptionPlan: "free",
+        subscriptionStatus: "inactive",
+        updatedAt: now,
+      },
+      { merge: true },
+    );
+  }
+
   await batch.commit();
+  if (ownerUid) {
+    const auth = getAuth(app);
+    const user = await auth.getUser(ownerUid);
+    await auth.setCustomUserClaims(ownerUid, {
+      ...(user.customClaims ?? {}),
+      artist: true,
+      label: true,
+    });
+  }
   console.log("Nemufy catalog seeded successfully in project", projectId);
 }
 

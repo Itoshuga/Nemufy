@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { delimiter } from "node:path";
+import { delimiter, join } from "node:path";
 
 const javaCandidates = [
   "/opt/homebrew/opt/openjdk@21/bin",
@@ -16,17 +16,21 @@ const environment = {
     : process.env.PATH,
 };
 
-const pnpmExecutable = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+const firebaseCli = join(
+  process.cwd(),
+  "node_modules",
+  "firebase-tools",
+  "lib",
+  "bin",
+  "firebase.js",
+);
+const testCommand =
+  process.platform === "win32"
+    ? `"${process.execPath}" --import tsx --test tests/firebase/firestore.rules.test.ts tests/firebase/storage.rules.test.ts`
+    : `${process.execPath} --import tsx --test tests/firebase/firestore.rules.test.ts tests/firebase/storage.rules.test.ts`;
 const result = spawnSync(
-  pnpmExecutable,
-  [
-    "exec",
-    "firebase",
-    "emulators:exec",
-    "--only",
-    "firestore,storage",
-    "pnpm exec tsx --test tests/firebase/*.test.ts",
-  ],
+  process.execPath,
+  [firebaseCli, "emulators:exec", "--only", "firestore,storage", testCommand],
   { cwd: process.cwd(), env: environment, stdio: "inherit" },
 );
 

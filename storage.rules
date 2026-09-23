@@ -7,22 +7,139 @@ service firebase.storage {
     }
 
     function isAdmin() {
+      return hasVerifiedEmail() && request.auth.token.admin == true;
+    }
+
+    function artistMembershipPath(artistId) {
+      return /databases/(default)/documents/artistMemberships/$(request.auth.uid + '_' + artistId);
+    }
+
+    function labelMembershipPath(labelId) {
+      return /databases/(default)/documents/labelMemberships/$(request.auth.uid + '_' + labelId);
+    }
+
+    function labelArtistPath(labelId, artistId) {
+      return /databases/(default)/documents/labelArtists/$(labelId + '_' + artistId);
+    }
+
+    function releasePath(releaseId) {
+      return /databases/(default)/documents/releases/$(releaseId);
+    }
+
+    function trackPath(trackId) {
+      return /databases/(default)/documents/tracks/$(trackId);
+    }
+
+    function releaseBelongsToArtist(releaseId, artistId) {
+      return artistId is string
+        && firestore.exists(releasePath(releaseId))
+        && firestore.get(releasePath(releaseId)).data.allArtistIds.hasAny([artistId]);
+    }
+
+    function trackBelongsToArtist(trackId, artistId) {
+      return artistId is string
+        && firestore.exists(trackPath(trackId))
+        && firestore.get(trackPath(trackId)).data.allArtistIds.hasAny([artistId]);
+    }
+
+    function directArtistPermission(artistId, permission) {
       return hasVerifiedEmail()
-        && 'admin' in request.auth.token
-        && request.auth.token.admin == true;
+        && firestore.exists(artistMembershipPath(artistId))
+        && firestore.get(artistMembershipPath(artistId)).data.status == 'active'
+        && firestore.get(artistMembershipPath(artistId)).data.permissions[permission] == true;
+    }
+
+    function labelArtistPermission(artistId, labelId, labelPermission, relationPermission) {
+      return hasVerifiedEmail()
+        && labelId is string
+        && firestore.exists(labelMembershipPath(labelId))
+        && firestore.exists(labelArtistPath(labelId, artistId))
+        && firestore.get(labelMembershipPath(labelId)).data.status == 'active'
+        && firestore.get(labelMembershipPath(labelId)).data.permissions[labelPermission] == true
+        && firestore.get(labelArtistPath(labelId, artistId)).data.status == 'active'
+        && firestore.get(labelArtistPath(labelId, artistId)).data.permissions[relationPermission] == true;
+    }
+
+    function hasArtistUploadPermission(artistId, labelPermission, relationPermission, directPermission) {
+      return isAdmin()
+        || directArtistPermission(artistId, directPermission)
+        || labelArtistPermission(
+          artistId,
+          request.resource.metadata.labelId,
+          labelPermission,
+          relationPermission
+        );
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/(jpeg|png|webp)');
+    }
+
+    function isAudio() {
+      return request.resource.contentType.matches('audio/(mpeg|wav|flac|mp4|x-m4a)');
+    }
+
+    match /artists/{artistId}/avatar/{fileName} {
+      allow read: if hasVerifiedEmail();
+      allow create, update: if request.resource.size < 8 * 1024 * 1024
+        && isImage()
+        && request.resource.metadata.artistId == artistId
+        && hasArtistUploadPermission(artistId, 'manageArtists', 'manageProfile', 'manageProfile');
+      allow delete: if false;
+    }
+
+    match /artists/{artistId}/banner/{fileName} {
+      allow read: if hasVerifiedEmail();
+      allow create, update: if request.resource.size < 12 * 1024 * 1024
+        && isImage()
+        && request.resource.metadata.artistId == artistId
+        && hasArtistUploadPermission(artistId, 'manageArtists', 'manageProfile', 'manageProfile');
+      allow delete: if false;
+    }
+
+    match /releases/{releaseId}/cover/{fileName} {
+      allow read: if hasVerifiedEmail();
+      allow create, update: if request.resource.size < 12 * 1024 * 1024
+        && isImage()
+        && releaseBelongsToArtist(releaseId, request.resource.metadata.artistId)
+        && hasArtistUploadPermission(request.resource.metadata.artistId, 'manageReleases', 'manageReleases', 'manageReleases');
+      allow delete: if false;
+    }
+
+    match /tracks/{trackId}/audio/{fileName} {
+      allow read: if hasVerifiedEmail();
+      allow create, update: if request.resource.size < 500 * 1024 * 1024
+        && isAudio()
+        && request.resource.metadata.releaseId is string
+        && releaseBelongsToArtist(
+          request.resource.metadata.releaseId,
+          request.resource.metadata.artistId
+        )
+        && hasArtistUploadPermission(request.resource.metadata.artistId, 'manageTracks', 'manageTracks', 'manageTracks');
+      allow delete: if false;
+    }
+
+    match /tracks/{trackId}/cover/{fileName} {
+      allow read: if hasVerifiedEmail();
+      allow create, update: if request.resource.size < 8 * 1024 * 1024
+        && isImage()
+        && trackBelongsToArtist(trackId, request.resource.metadata.artistId)
+        && hasArtistUploadPermission(request.resource.metadata.artistId, 'manageTracks', 'manageTracks', 'manageTracks');
+      allow delete: if false;
+    }
+
+    match /users/{userId}/avatars/{fileName} {
+      allow read: if hasVerifiedEmail();
+      allow create, update: if hasVerifiedEmail()
+        && request.auth.uid == userId
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if hasVerifiedEmail() && request.auth.uid == userId;
     }
 
     match /catalog/{allPaths=**} {
       allow read: if hasVerifiedEmail();
       allow write: if isAdmin();
-    }
-
-    match /users/{userId}/avatars/{fileName} {
-      allow read: if hasVerifiedEmail();
-      allow write: if hasVerifiedEmail()
-        && request.auth.uid == userId
-        && request.resource.size < 5 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
     }
 
     match /{allPaths=**} {
