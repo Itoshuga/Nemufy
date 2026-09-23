@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Search, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { UserMenu, type AppUser } from "@/components/auth/user-menu";
 import { Button } from "@/components/ui/button";
 
 const pageNames: Record<string, string> = {
@@ -11,7 +12,7 @@ const pageNames: Record<string, string> = {
   "/library": "Your Library",
 };
 
-export function AppHeader() {
+export function AppHeader({ user }: { user: AppUser }) {
   const router = useRouter();
   const pathname = usePathname();
   const sectionName =
@@ -64,14 +65,7 @@ export function AppHeader() {
             Search
           </Link>
         </Button>
-        <div className="border-border bg-surface flex items-center gap-2 rounded-full border py-1 pr-3 pl-1">
-          <span className="bg-primary/15 text-primary grid size-7 place-items-center rounded-full">
-            <Sparkles className="size-3.5" aria-hidden="true" />
-          </span>
-          <span className="text-foreground hidden text-xs font-medium sm:inline">
-            Night listener
-          </span>
-        </div>
+        <UserMenu user={user} />
       </div>
     </header>
   );

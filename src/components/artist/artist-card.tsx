@@ -1,12 +1,18 @@
 import Link from "next/link";
 import { BadgeCheck } from "lucide-react";
-import type { Artist } from "@/types/catalog";
+import type { Artist, Track } from "@/types/catalog";
 import { CoverImage } from "@/components/media/cover-image";
 import { PlayButton } from "@/components/player/play-button";
 import { getPopularTracksByArtistId } from "@/data/mock/selectors";
 
-export function ArtistCard({ artist }: { artist: Artist }) {
-  const tracks = getPopularTracksByArtistId(artist.id);
+export function ArtistCard({
+  artist,
+  tracks,
+}: {
+  artist: Artist;
+  tracks?: Track[];
+}) {
+  const artistTracks = getPopularTracksByArtistId(artist.id, tracks);
 
   return (
     <article className="group min-w-0 text-center sm:text-left">
@@ -23,7 +29,7 @@ export function ArtistCard({ artist }: { artist: Artist }) {
           />
         </Link>
         <PlayButton
-          tracks={tracks}
+          tracks={artistTracks}
           className="absolute right-[8%] bottom-[5%] translate-y-2 opacity-0 transition-all duration-200 group-focus-within:translate-y-0 group-focus-within:opacity-100 group-hover:translate-y-0 group-hover:opacity-100"
         />
       </div>

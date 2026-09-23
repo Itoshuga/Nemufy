@@ -1,21 +1,21 @@
 import { artists, playlists, releases, tracks } from "@/data/mock/catalog";
 
-export const getArtistBySlug = (slug: string) =>
-  artists.find((artist) => artist.slug === slug);
+export const getArtistBySlug = (slug: string, source = artists) =>
+  source.find((artist) => artist.slug === slug);
 
-export const getReleaseBySlug = (slug: string) =>
-  releases.find((release) => release.slug === slug);
+export const getReleaseBySlug = (slug: string, source = releases) =>
+  source.find((release) => release.slug === slug);
 
-export const getPlaylistBySlug = (slug: string) =>
-  playlists.find((playlist) => playlist.slug === slug);
+export const getPlaylistBySlug = (slug: string, source = playlists) =>
+  source.find((playlist) => playlist.slug === slug);
 
-export const getReleasesByArtistId = (artistId: string) =>
-  releases.filter((release) =>
+export const getReleasesByArtistId = (artistId: string, source = releases) =>
+  source.filter((release) =>
     release.artists.some((artist) => artist.id === artistId),
   );
 
-export const getAppearancesByArtistId = (artistId: string) =>
-  releases.filter(
+export const getAppearancesByArtistId = (artistId: string, source = releases) =>
+  source.filter(
     (release) =>
       !release.artists.some((artist) => artist.id === artistId) &&
       release.tracks.some(
@@ -25,8 +25,8 @@ export const getAppearancesByArtistId = (artistId: string) =>
       ),
   );
 
-export const getPopularTracksByArtistId = (artistId: string) =>
-  tracks
+export const getPopularTracksByArtistId = (artistId: string, source = tracks) =>
+  source
     .filter((track) =>
       [...track.primaryArtists, ...track.featuredArtists].some(
         (artist) => artist.id === artistId,

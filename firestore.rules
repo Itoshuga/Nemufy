@@ -1,0 +1,108 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function hasVerifiedEmail() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return hasVerifiedEmail() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return hasVerifiedEmail()
+        && 'admin' in request.auth.token
+        && request.auth.token.admin == true;
+    }
+
+    function hasOnlyKeys(allowedKeys) {
+      return request.resource.data.keys().hasOnly(allowedKeys);
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create, update, delete: if false;
+
+      match /likedTracks/{trackId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && hasOnlyKeys(['trackId', 'likedAt'])
+          && request.resource.data.trackId == trackId
+          && request.resource.data.likedAt is timestamp;
+      }
+
+      match /followedArtists/{artistId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && hasOnlyKeys(['artistId', 'followedAt'])
+          && request.resource.data.artistId == artistId
+          && request.resource.data.followedAt is timestamp;
+      }
+
+      match /history/{historyId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && hasOnlyKeys(['trackId', 'playedAt', 'progressSeconds'])
+          && request.resource.data.trackId is string
+          && request.resource.data.playedAt is timestamp
+          && request.resource.data.progressSeconds is number;
+        allow update, delete: if false;
+      }
+
+      match /settings/preferences {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && hasOnlyKeys(['theme', 'language', 'autoplay', 'updatedAt'])
+          && request.resource.data.theme in ['dark']
+          && request.resource.data.language in ['en', 'fr']
+          && request.resource.data.autoplay is bool
+          && request.resource.data.updatedAt is timestamp;
+        allow delete: if false;
+      }
+    }
+
+    match /usernames/{username} {
+      allow read, write: if false;
+    }
+
+    match /artists/{artistId} {
+      allow read: if hasVerifiedEmail();
+      allow write: if isAdmin();
+    }
+
+    match /releases/{releaseId} {
+      allow read: if hasVerifiedEmail() && resource.data.status == 'published';
+      allow write: if isAdmin();
+    }
+
+    match /tracks/{trackId} {
+      allow read: if hasVerifiedEmail() && resource.data.status == 'published';
+      allow write: if isAdmin();
+    }
+
+    match /playlists/{playlistId} {
+      allow read: if hasVerifiedEmail() && resource.data.visibility == 'public';
+      allow write: if isAdmin();
+    }
+
+    match /categories/{categoryId} {
+      allow read: if hasVerifiedEmail();
+      allow write: if isAdmin();
+    }
+
+    match /artistMemberships/{membershipId} {
+      allow read: if hasVerifiedEmail()
+        && (resource.data.userId == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

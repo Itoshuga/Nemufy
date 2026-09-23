@@ -23,6 +23,7 @@ type PlayerState = {
   setQueue: (tracks: Track[], startIndex?: number) => void;
   playFromQueue: (index: number) => void;
   syncProgress: (currentTime: number, duration: number) => void;
+  reset: () => void;
 };
 
 const clamp = (value: number, minimum: number, maximum: number) =>
@@ -119,4 +120,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     });
   },
   syncProgress: (currentTime, duration) => set({ currentTime, duration }),
+  reset: () =>
+    set({
+      currentTrack: null,
+      queue: [],
+      currentQueueIndex: -1,
+      isPlaying: false,
+      currentTime: 0,
+      duration: 0,
+      muted: false,
+      seekVersion: 0,
+    }),
 }));

@@ -11,16 +11,18 @@ import { CategoryCard } from "@/components/search/category-card";
 import { SectionHeader } from "@/components/home/section-header";
 import { TrackList } from "@/components/track/track-list";
 import { Button } from "@/components/ui/button";
-import { artists, playlists, releases, tracks } from "@/data/mock/catalog";
-import { categories } from "@/data/mock/categories";
+import type { Catalog } from "@/data/catalog";
 
 const normalize = (value: string) => value.toLocaleLowerCase().trim();
 
 export function SearchExperience({
   initialQuery = "",
+  catalog,
 }: {
   initialQuery?: string;
+  catalog: Catalog;
 }) {
+  const { artists, playlists, releases, tracks, categories } = catalog;
   const [query, setQuery] = useState(initialQuery);
   const normalizedQuery = normalize(query);
 
@@ -68,7 +70,7 @@ export function SearchExperience({
         matchingReleases.length +
         matchingPlaylists.length,
     };
-  }, [normalizedQuery]);
+  }, [artists, normalizedQuery, playlists, releases, tracks]);
 
   return (
     <div>
@@ -126,7 +128,7 @@ export function SearchExperience({
           </p>
         </div>
       ) : (
-        <SearchResults query={query} results={results} />
+        <SearchResults query={query} results={results} catalogTracks={tracks} />
       )}
     </div>
   );
@@ -135,15 +137,16 @@ export function SearchExperience({
 type SearchResultsProps = {
   query: string;
   results: {
-    artists: typeof artists;
-    tracks: typeof tracks;
-    releases: typeof releases;
-    playlists: typeof playlists;
+    artists: Catalog["artists"];
+    tracks: Catalog["tracks"];
+    releases: Catalog["releases"];
+    playlists: Catalog["playlists"];
     count: number;
   };
+  catalogTracks: Catalog["tracks"];
 };
 
-function SearchResults({ query, results }: SearchResultsProps) {
+function SearchResults({ query, results, catalogTracks }: SearchResultsProps) {
   const topArtist = results.artists[0];
   const topTrack = results.tracks[0];
   return (
@@ -181,7 +184,7 @@ function SearchResults({ query, results }: SearchResultsProps) {
             <PlayButton
               tracks={
                 topArtist
-                  ? tracks.filter((track) =>
+                  ? catalogTracks.filter((track) =>
                       [...track.primaryArtists, ...track.featuredArtists].some(
                         (artist) => artist.id === topArtist.id,
                       ),
@@ -208,7 +211,11 @@ function SearchResults({ query, results }: SearchResultsProps) {
           <SectionHeader title="Artists" />
           <div className="card-grid">
             {results.artists.slice(0, 5).map((artist) => (
-              <ArtistCard key={artist.id} artist={artist} />
+              <ArtistCard
+                key={artist.id}
+                artist={artist}
+                tracks={catalogTracks}
+              />
             ))}
           </div>
         </section>
