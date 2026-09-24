@@ -18,3 +18,5 @@ minimumReleaseAgeExclude:
   - eslint-config-next@16.3.6
   - next@16.3.6
   - prettier@3.9.9
+patchedDependencies:
+  jwks-rsa@4.1.0: patches/jwks-rsa@4.1.0.patch
