@@ -34,6 +34,14 @@ export const artistPermissionPresets: Record<
     manageTeam: false,
     viewAnalytics: false,
   },
+  viewer: {
+    manageProfile: false,
+    manageReleases: false,
+    manageTracks: false,
+    publish: false,
+    manageTeam: false,
+    viewAnalytics: true,
+  },
 };
 
 export const labelPermissionPresets: Record<
@@ -76,6 +84,15 @@ export const labelPermissionPresets: Record<
     manageTeam: false,
     viewAnalytics: false,
   },
+  viewer: {
+    manageLabel: false,
+    manageArtists: false,
+    manageReleases: false,
+    manageTracks: false,
+    publish: false,
+    manageTeam: false,
+    viewAnalytics: true,
+  },
 };
 
 export const defaultLabelArtistPermissions: Readonly<LabelArtistPermissions> = {
@@ -85,10 +102,22 @@ export const defaultLabelArtistPermissions: Readonly<LabelArtistPermissions> = {
   publish: true,
 };
 
-export function getArtistPermissions(role: ArtistMembershipRole) {
-  return { ...artistPermissionPresets[role] };
+export function getEffectiveArtistPermissions(input: {
+  role: ArtistMembershipRole;
+  permissionOverrides?: Partial<ArtistPermissions>;
+}) {
+  return {
+    ...artistPermissionPresets[input.role],
+    ...(input.permissionOverrides ?? {}),
+  };
 }
 
-export function getLabelPermissions(role: LabelMembershipRole) {
-  return { ...labelPermissionPresets[role] };
+export function getEffectiveLabelPermissions(input: {
+  role: LabelMembershipRole;
+  permissionOverrides?: Partial<LabelPermissions>;
+}) {
+  return {
+    ...labelPermissionPresets[input.role],
+    ...(input.permissionOverrides ?? {}),
+  };
 }

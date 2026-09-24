@@ -15,7 +15,7 @@ export type SessionUser = Pick<
   DecodedIdToken,
   "uid" | "email" | "email_verified" | "name" | "picture"
 > & {
-  claims: { admin: boolean; artist: boolean; label: boolean };
+  claims: { admin: boolean };
 };
 
 export type ActiveSession = {
@@ -40,8 +40,6 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
       picture: decodedToken.picture,
       claims: {
         admin: decodedToken.admin === true,
-        artist: decodedToken.artist === true,
-        label: decodedToken.label === true,
       },
     };
   } catch {
@@ -82,7 +80,7 @@ export async function requireAdminUser(): Promise<ActiveSession> {
   const session = await requireActiveUser();
   if (!session.user.claims.admin) {
     if (session.profile.capabilities.admin) {
-      redirect("/refresh-session?next=%2Fadmin&claim=admin");
+      redirect("/refresh-session?next=%2Fmanage%2Fadmin&claim=admin");
     }
     redirect("/");
   }

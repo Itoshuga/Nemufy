@@ -13,6 +13,7 @@
     "firebase:emulators": "firebase emulators:start",
     "firebase:seed": "tsx scripts/seed-firestore.ts",
     "firebase:set-capabilities": "tsx scripts/set-user-capabilities.ts",
+    "firebase:migrate-backoffice": "tsx scripts/migrate-backoffice-access.ts",
     "firebase:deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes,storage",
     "test:rules": "node scripts/test-firebase-rules.mjs",
     "test:permissions": "tsx --test tests/permissions/*.test.ts"

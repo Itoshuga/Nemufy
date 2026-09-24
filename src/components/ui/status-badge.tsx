@@ -1,9 +1,12 @@
 import { cn } from "@/lib/utils";
 
-export function StatusBadge({ status }: { status: string }) {
-  const positive = ["active", "published", "verified"].includes(status);
+export function StatusBadge({ status }: { status?: string | null }) {
+  const normalizedStatus = status?.trim() || "unknown";
+  const positive = ["active", "published", "verified"].includes(
+    normalizedStatus,
+  );
   const warning = ["draft", "pending", "scheduled", "trialing"].includes(
-    status,
+    normalizedStatus,
   );
   return (
     <span
@@ -16,7 +19,7 @@ export function StatusBadge({ status }: { status: string }) {
             : "text-muted-foreground border-white/10 bg-white/5",
       )}
     >
-      {status.replaceAll("_", " ")}
+      {normalizedStatus.replaceAll("_", " ")}
     </span>
   );
 }

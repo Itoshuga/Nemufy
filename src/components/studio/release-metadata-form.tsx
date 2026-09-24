@@ -2,19 +2,22 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { LoaderCircle, Save } from "lucide-react";
+import { ChevronDown, Check, LoaderCircle, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-const fieldClassName =
-  "border-border bg-background mt-2 w-full rounded-xl border px-3 py-2.5 text-sm";
 
 export function ReleaseMetadataForm({
   artistId,
   releaseId,
+  artistName,
+  artistOptions = [],
+  readOnly = false,
   initial,
 }: {
   artistId: string;
   releaseId: string;
+  artistName?: string;
+  artistOptions?: Array<{ id: string; name: string }>;
+  readOnly?: boolean;
   initial: {
     title: string;
     type: "single" | "ep" | "album";
@@ -32,9 +35,9 @@ export function ReleaseMetadataForm({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = new FormData(event.currentTarget);
     setPending(true);
     setMessage(null);
-    const form = new FormData(event.currentTarget);
     try {
       const response = await fetch(
         `/api/studio/artists/${artistId}/releases/${releaseId}`,
@@ -50,25 +53,24 @@ export function ReleaseMetadataForm({
               description: form.get("description"),
               copyright: form.get("copyright"),
               explicit: form.get("explicit") === "on",
-              primaryArtistIds: splitIds(form.get("primaryArtistIds")),
-              featuredArtistIds: splitIds(form.get("featuredArtistIds")),
+              primaryArtistIds: initial.primaryArtistIds,
+              featuredArtistIds: form.getAll("featuredArtistIds"),
             },
           }),
         },
       );
       const payload = (await response.json()) as { message?: string };
-      if (!response.ok) {
+      if (!response.ok)
         throw new Error(
-          payload.message ?? "Release metadata could not be saved.",
+          payload.message ?? "Release details could not be saved.",
         );
-      }
-      setMessage("Release metadata saved.");
+      setMessage("Saved");
       router.refresh();
     } catch (caught) {
       setMessage(
         caught instanceof Error
           ? caught.message
-          : "Release metadata could not be saved.",
+          : "Release details could not be saved.",
       );
     } finally {
       setPending(false);
@@ -76,24 +78,30 @@ export function ReleaseMetadataForm({
   }
 
   return (
-    <details className="border-border bg-surface mt-8 rounded-2xl border p-6">
-      <summary className="cursor-pointer font-semibold">
-        Edit release metadata
-      </summary>
+    <section className="border-border bg-surface rounded-2xl border p-5 sm:p-6">
+      <div>
+        <h2 className="font-semibold">Release details</h2>
+        <p className="text-muted-foreground mt-1 text-xs">
+          Listener-facing metadata. The primary artist is controlled by this
+          workspace.
+        </p>
+      </div>
       <form onSubmit={submit} className="mt-5 grid gap-4 sm:grid-cols-2">
-        <Field label="Title">
+        <Field label="Title" className="sm:col-span-2">
           <input
             name="title"
             defaultValue={initial.title}
             required
-            className={fieldClassName}
+            disabled={readOnly}
+            className="manage-input"
           />
         </Field>
         <Field label="Type">
           <select
             name="type"
             defaultValue={initial.type}
-            className={fieldClassName}
+            disabled={readOnly}
+            className="manage-input"
           >
             <option value="single">Single</option>
             <option value="ep">EP</option>
@@ -106,82 +114,117 @@ export function ReleaseMetadataForm({
             type="date"
             defaultValue={initial.releaseDate}
             required
-            className={fieldClassName}
+            disabled={readOnly}
+            className="manage-input"
+          />
+        </Field>
+        <Field label="Primary artist">
+          <input
+            value={artistName ?? "Artist"}
+            disabled
+            className="manage-input"
+            aria-label="Primary artist"
           />
         </Field>
         <Field label="Copyright">
           <input
             name="copyright"
             defaultValue={initial.copyright}
-            className={fieldClassName}
+            disabled={readOnly}
+            className="manage-input"
           />
         </Field>
-        <Field label="Primary artist IDs">
-          <input
-            name="primaryArtistIds"
-            defaultValue={initial.primaryArtistIds.join(", ")}
-            required
-            className={fieldClassName}
-          />
-        </Field>
-        <Field label="Featured artist IDs">
-          <input
-            name="featuredArtistIds"
-            defaultValue={initial.featuredArtistIds.join(", ")}
-            className={fieldClassName}
-          />
-        </Field>
-        <label className="text-xs font-medium sm:col-span-2">
-          Description
-          <textarea
-            name="description"
-            defaultValue={initial.description}
-            rows={5}
-            className={fieldClassName}
-          />
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            name="explicit"
-            type="checkbox"
-            defaultChecked={initial.explicit}
-          />
-          Explicit content
-        </label>
-        <div className="flex items-center justify-end gap-3">
-          {message && (
-            <span className="text-muted-foreground text-xs" role="status">
-              {message}
-            </span>
-          )}
-          <Button disabled={pending}>
-            {pending ? <LoaderCircle className="animate-spin" /> : <Save />}
-            Save
-          </Button>
-        </div>
+
+        <details className="border-border rounded-xl border p-4 sm:col-span-2">
+          <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold">
+            Advanced <ChevronDown className="text-muted-foreground size-4" />
+          </summary>
+          <div className="mt-4 space-y-4">
+            <Field label="Description">
+              <textarea
+                name="description"
+                defaultValue={initial.description}
+                rows={4}
+                disabled={readOnly}
+                className="manage-input min-h-28 py-3"
+              />
+            </Field>
+            {artistOptions.length > 1 ? (
+              <fieldset disabled={readOnly}>
+                <legend className="mb-2 text-xs font-medium">Featuring</legend>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {artistOptions
+                    .filter(
+                      (artist) => !initial.primaryArtistIds.includes(artist.id),
+                    )
+                    .map((artist) => (
+                      <label
+                        key={artist.id}
+                        className="border-border bg-background flex items-center gap-3 rounded-xl border p-3 text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          name="featuredArtistIds"
+                          value={artist.id}
+                          defaultChecked={initial.featuredArtistIds.includes(
+                            artist.id,
+                          )}
+                        />
+                        {artist.name}
+                      </label>
+                    ))}
+                </div>
+              </fieldset>
+            ) : null}
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                name="explicit"
+                type="checkbox"
+                defaultChecked={initial.explicit}
+                disabled={readOnly}
+              />{" "}
+              Explicit content
+            </label>
+          </div>
+        </details>
+
+        {!readOnly ? (
+          <div className="flex items-center justify-end gap-3 sm:col-span-2">
+            {message ? (
+              <span
+                className="text-muted-foreground flex items-center gap-1 text-xs"
+                role="status"
+              >
+                {message === "Saved" ? (
+                  <Check className="size-3 text-emerald-300" />
+                ) : null}
+                {message}
+              </span>
+            ) : null}
+            <Button disabled={pending}>
+              {pending ? <LoaderCircle className="animate-spin" /> : <Save />}
+              {pending ? "Saving…" : "Save details"}
+            </Button>
+          </div>
+        ) : null}
       </form>
-    </details>
+    </section>
   );
 }
 
 function Field({
   label,
+  className,
   children,
 }: {
   label: string;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <label className="text-xs font-medium">
-      {label}
+    <label className={className}>
+      <span className="mb-2 block text-xs font-medium">{label}</span>
       {children}
     </label>
   );
-}
-
-function splitIds(value: FormDataEntryValue | null) {
-  return String(value ?? "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
 }

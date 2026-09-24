@@ -1,41 +1,47 @@
-# Nemufy Studio
+# Nemufy backoffice
 
 ## Context model
 
-`/studio` lists the artist and label entities the current user can manage. The header switcher changes the current entity:
+`/manage` is the single entry point for Artist, Label and Admin work. The sidebar switcher changes the current entity:
 
 ```text
 Managing as
 ├── Artist · Nemu
 ├── Artist · Airi
-└── Label  · Midnight Records
+├── Label  · Midnight Records
+└── Nemufy Administration
 ```
 
-Selecting a context never changes permissions. Every page and every mutation resolves the current session, account status, membership and relationship again on the server.
+Artists linked only through a label appear inside that label's Artists view; they are not duplicated under “My Artists”. Selecting a context never changes permissions. Every page and every mutation resolves the current session, account status, membership and relationship again on the server.
 
-## Artist Studio
+Legacy `/studio/*` and `/admin/*` URLs redirect to their canonical `/manage/*` destination.
 
-Routes include overview, profile, releases, tracks, team, analytics and settings beneath `/studio/artists/[artistId]`.
+## Artist workspace
+
+Routes beneath `/manage/artists/[artistId]` intentionally stay short: Overview, Music, Profile and Team.
 
 - **Overview** shows stored catalog totals and clearly marked development metrics.
 - **Profile** manages identity, categories, links, avatar and banner.
-- **Releases** separates draft, scheduled, published and archived states.
-- **New release** uses seven visible workflow stages and always creates a draft.
-- **Release workspace** edits and duplicates metadata, uploads previewed cover artwork, and manages ordered audio tracks with structured featuring credits and optional track covers. Draft removal is a recoverable archive operation.
+- **Music** combines Releases and Tracks with tabs and useful filters.
+- **New release** asks only for essential public metadata, creates a draft, then opens the release workspace.
+- **Release workspace** uses a shallow `/manage/releases/[releaseId]` URL and combines artwork, metadata, uploads, ordering and publishing. Advanced metadata is progressively disclosed. Raw Firestore IDs are not requested from operators.
 - **Team** shows memberships and prepares seven-day invitations.
-- **Analytics** does not present placeholder events as real production data.
 
-## Label Studio
+## Label workspace
 
-Routes beneath `/studio/labels/[labelId]` provide overview, artists, aggregate catalog, team, analytics and label profile.
+Routes beneath `/manage/labels/[labelId]` provide Overview, Artists, Music, Team and Profile.
 
 Labels can:
 
 - create an artist without a matching user account, creating an active `labelArtists` relation;
-- request a link to an existing artist, creating a pending relationship;
+- select an existing artist by name and request a link, creating a pending relationship;
 - open active artist contexts according to label and relation permissions;
 - filter aggregate releases by artist, status and type;
 - prepare team invitations without coupling the member to an artist identity.
+
+## Administration
+
+`/manage/admin` uses the same shell and shared artist/label workspaces. Its navigation is limited to Overview, Users, Artists, Labels, Music, Playlists, Platform and Audit Logs. Artist and label rows open the exact workspace used by their team; there is no second admin-only editor.
 
 ## Upload workflow
 

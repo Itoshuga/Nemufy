@@ -11,6 +11,7 @@ export async function getAdminOverviewCounts() {
     artists,
     labels,
     releases,
+    tracks,
     publishedTracks,
     playlists,
   ] = await Promise.all([
@@ -23,6 +24,7 @@ export async function getAdminOverviewCounts() {
     firestore.collection(collections.artists).count().get(),
     firestore.collection(collections.labels).count().get(),
     firestore.collection(collections.releases).count().get(),
+    firestore.collection(collections.tracks).count().get(),
     firestore
       .collection(collections.tracks)
       .where("status", "==", "published")
@@ -36,6 +38,7 @@ export async function getAdminOverviewCounts() {
     artists: artists.data().count,
     labels: labels.data().count,
     releases: releases.data().count,
+    tracks: tracks.data().count,
     publishedTracks: publishedTracks.data().count,
     playlists: playlists.data().count,
   };

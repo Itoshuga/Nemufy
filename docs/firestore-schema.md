@@ -29,8 +29,8 @@ Existing identity fields remain. Authorization and billing concepts are separate
   accountStatus: "active" | "suspended" | "deleted"
   onboardingCompleted: boolean
   capabilities: {
-    artist: boolean
-    label: boolean
+    artist: boolean // legacy provisioning flag; not an authorization source
+    label: boolean // legacy provisioning flag; not an authorization source
     admin: boolean
   }
   subscriptionPlan: "free" | "premium"
@@ -81,15 +81,8 @@ Artists exist independently of users and labels.
 {
   userId: string;
   artistId: string;
-  role: "owner" | "manager" | "editor";
-  permissions: {
-    manageProfile: boolean;
-    manageReleases: boolean;
-    manageTracks: boolean;
-    publish: boolean;
-    manageTeam: boolean;
-    viewAnalytics: boolean;
-  }
+  role: "owner" | "manager" | "editor" | "viewer";
+  permissionOverrides?: Partial<ArtistPermissions>;
   status: "active" | "pending" | "revoked";
   invitedBy: string | null;
   createdAt: Timestamp;
@@ -98,7 +91,7 @@ Artists exist independently of users and labels.
 }
 ```
 
-Role presets live in `src/lib/permissions/presets.ts`. Stored permissions are explicit so a later controlled override does not require redesigning the relationship.
+Role presets live in `src/lib/permissions/presets.ts` and are the default source of truth. `permissionOverrides` is optional and stores only intentional exceptions. The legacy materialized `permissions` field is read during migration but is no longer written.
 
 ## `labels/{labelId}`
 
@@ -122,7 +115,7 @@ Role presets live in `src/lib/permissions/presets.ts`. Stored permissions are ex
 
 ## `labelMemberships/{uid}_{labelId}`
 
-The roles are `owner`, `admin`, `manager` and `editor`. Permissions are stored as `manageLabel`, `manageArtists`, `manageReleases`, `manageTracks`, `publish`, `manageTeam` and `viewAnalytics`, with centralized presets.
+The roles are `owner`, `admin`, `manager`, `editor` and `viewer`. Central presets define `manageLabel`, `manageArtists`, `manageReleases`, `manageTracks`, `publish`, `manageTeam` and `viewAnalytics`; an optional `permissionOverrides` map contains only deliberate exceptions.
 
 ## `labelArtists/{labelId}_{artistId}`
 
@@ -151,7 +144,7 @@ An artist created by a label receives an active relation without requiring a use
 
 ## `releases/{releaseId}` and `tracks/{trackId}`
 
-Releases support `draft`, `scheduled`, `published` and `archived`. Covers store both `coverUrl` and `coverStoragePath`. Tracks store structured `primaryArtistIds`, `featuredArtistIds`, `allArtistIds`, ordered `artistCredits`, `audioUrl` and `audioStoragePath`.
+Releases support `draft`, `scheduled`, `published` and `archived`. New records also store `createdByUserId` and, when created through a label relationship, `labelId`. These fields are optional while older documents are migrated. Covers store both `coverUrl` and `coverStoragePath`. Tracks store structured `primaryArtistIds`, `featuredArtistIds`, `allArtistIds`, ordered `artistCredits`, `audioUrl` and `audioStoragePath`.
 
 A release starts as a draft. `validateReleaseForPublishing()` checks title, cover, primary artist, at least one track, audio for every track and minimum metadata inside a server transaction before publishing the release and its tracks.
 

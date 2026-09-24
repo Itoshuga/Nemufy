@@ -4,18 +4,20 @@ Firestore is treated as a documented data model, not as an unstructured object s
 
 ## Root collections
 
-| Collection                         | Source of truth                           | Main access path                           |
-| ---------------------------------- | ----------------------------------------- | ------------------------------------------ |
-| `users/{uid}`                      | Nemufy profile and account state          | Server writes; owner reads                 |
-| `usernames/{normalizedUsername}`   | Atomic username reservation               | Server only                                |
-| `artists/{artistId}`               | ASMR artist identity                      | Verified reads; admin writes               |
-| `tracks/{trackId}`                 | Audio track metadata                      | Verified reads of published records        |
-| `releases/{releaseId}`             | Single, EP and album metadata             | Verified reads of published records        |
-| `playlists/{playlistId}`           | Editorial and future user playlists       | Verified reads of public records           |
-| `categories/{categoryId}`          | ASMR taxonomy                             | Verified reads; admin writes               |
-| `artistMemberships/{membershipId}` | Future user-to-artist management relation | Member/admin reads; admin writes initially |
+| Collection                         | Source of truth                     | Main access path                            |
+| ---------------------------------- | ----------------------------------- | ------------------------------------------- |
+| `users/{uid}`                      | Nemufy profile and account state    | Server writes; owner reads                  |
+| `usernames/{normalizedUsername}`   | Atomic username reservation         | Server only                                 |
+| `artists/{artistId}`               | ASMR artist identity                | Verified reads; admin writes                |
+| `tracks/{trackId}`                 | Audio track metadata                | Verified reads of published records         |
+| `releases/{releaseId}`             | Single, EP and album metadata       | Verified reads of published records         |
+| `playlists/{playlistId}`           | Editorial and future user playlists | Verified reads of public records            |
+| `categories/{categoryId}`          | ASMR taxonomy                       | Verified reads; admin writes                |
+| `artistMemberships/{membershipId}` | User-to-artist management relation  | Member/admin reads; protected server writes |
+| `labelMemberships/{membershipId}`  | User-to-label management relation   | Member/admin reads; protected server writes |
+| `labelArtists/{relationId}`        | Label-to-artist management relation | Related members/admin                       |
 
-Firebase Authentication is the source of truth for email, credentials and verification state. `users/{uid}` never stores passwords or password hashes. A user and an artist are deliberately separate entities; future memberships express which users can manage which artists.
+Firebase Authentication is the source of truth for email, credentials and verification state. `users/{uid}` never stores passwords or password hashes. A user, artist and label are deliberately separate entities; active memberships express which users can manage which entities. Only the global administrator flag is stored as a Custom Claim.
 
 ## User-owned subcollections
 

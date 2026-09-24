@@ -37,6 +37,9 @@ export function TrackActions({
   canEdit,
   canDelete,
   labelId,
+  primaryArtistName = "Primary artist",
+  artistOptions = [],
+  categoryOptions = [],
 }: {
   artistId: string;
   releaseId: string;
@@ -45,6 +48,9 @@ export function TrackActions({
   canEdit: boolean;
   canDelete: boolean;
   labelId?: string;
+  primaryArtistName?: string;
+  artistOptions?: Array<{ id: string; name: string }>;
+  categoryOptions?: Array<{ id: string; name: string }>;
 }) {
   const router = useRouter();
   const [pending, setPending] = useState<string | null>(null);
@@ -102,9 +108,15 @@ export function TrackActions({
         trackId: track.id,
         data: {
           title: form.get("title"),
-          primaryArtistIds: splitIds(form.get("primaryArtistIds")),
-          featuredArtistIds: splitIds(form.get("featuredArtistIds")),
-          categoryIds: splitIds(form.get("categoryIds")),
+          primaryArtistIds: track.primaryArtistIds,
+          featuredArtistIds:
+            artistOptions.length > 0
+              ? form.getAll("featuredArtistIds").map(String)
+              : track.featuredArtistIds,
+          categoryIds:
+            categoryOptions.length > 0
+              ? form.getAll("categoryIds").map(String)
+              : track.categoryIds,
           tags: splitIds(form.get("tags")),
           explicit: form.get("explicit") === "on",
         },
@@ -227,27 +239,61 @@ export function TrackActions({
               aria-label="Track title"
               className="border-border bg-background rounded-lg border px-2 py-1.5 text-xs"
             />
-            <input
-              name="primaryArtistIds"
-              defaultValue={track.primaryArtistIds.join(", ")}
-              required
-              aria-label="Primary artist IDs"
-              className="border-border bg-background rounded-lg border px-2 py-1.5 text-xs"
-            />
-            <input
-              name="featuredArtistIds"
-              defaultValue={track.featuredArtistIds.join(", ")}
-              aria-label="Featured artist IDs"
-              placeholder="Featured artist IDs"
-              className="border-border bg-background rounded-lg border px-2 py-1.5 text-xs"
-            />
-            <input
-              name="categoryIds"
-              defaultValue={track.categoryIds.join(", ")}
-              aria-label="Category IDs"
-              placeholder="Category IDs"
-              className="border-border bg-background rounded-lg border px-2 py-1.5 text-xs"
-            />
+            <div className="border-border bg-background rounded-lg border px-2 py-2 text-xs">
+              <span className="text-subtle block text-[9px] font-semibold uppercase">
+                Primary artist
+              </span>
+              <span className="mt-1 block font-medium">
+                {primaryArtistName}
+              </span>
+            </div>
+            {artistOptions.filter((option) => option.id !== artistId).length >
+              0 && (
+              <fieldset className="grid gap-1">
+                <legend className="text-subtle text-[10px] font-semibold uppercase">
+                  Featuring
+                </legend>
+                {artistOptions
+                  .filter((option) => option.id !== artistId)
+                  .map((option) => (
+                    <label
+                      key={option.id}
+                      className="border-border bg-background flex items-center gap-2 rounded-lg border px-2 py-1.5 text-xs"
+                    >
+                      <input
+                        type="checkbox"
+                        name="featuredArtistIds"
+                        value={option.id}
+                        defaultChecked={track.featuredArtistIds.includes(
+                          option.id,
+                        )}
+                      />
+                      {option.name}
+                    </label>
+                  ))}
+              </fieldset>
+            )}
+            {categoryOptions.length > 0 && (
+              <fieldset className="grid gap-1 sm:grid-cols-2">
+                <legend className="text-subtle col-span-full text-[10px] font-semibold uppercase">
+                  Categories
+                </legend>
+                {categoryOptions.map((option) => (
+                  <label
+                    key={option.id}
+                    className="border-border bg-background flex items-center gap-2 rounded-lg border px-2 py-1.5 text-xs"
+                  >
+                    <input
+                      type="checkbox"
+                      name="categoryIds"
+                      value={option.id}
+                      defaultChecked={track.categoryIds.includes(option.id)}
+                    />
+                    {option.name}
+                  </label>
+                ))}
+              </fieldset>
+            )}
             <input
               name="tags"
               defaultValue={track.tags.join(", ")}

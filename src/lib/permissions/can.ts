@@ -4,6 +4,10 @@ import type {
   LabelMembershipDocument,
 } from "@/types/firestore";
 import type { PermissionAction } from "@/types/platform";
+import {
+  getEffectiveArtistPermissions,
+  getEffectiveLabelPermissions,
+} from "@/lib/permissions/presets";
 
 export type PermissionContext = {
   isAdmin: boolean;
@@ -51,24 +55,28 @@ function getActiveLabelPaths(context: PermissionContext) {
 
 export function getLabelIdForArtistAction(
   context: PermissionContext,
-  action: "artist:edit" | "release:edit" | "track:create" | "track:edit",
+  action:
+    | "artist:edit"
+    | "release:create"
+    | "release:edit"
+    | "track:create"
+    | "track:edit",
 ) {
   const path = getActiveLabelPaths(context).find(({ membership, relation }) => {
     if (action === "artist:edit") {
+      const labelPermissions = getEffectiveLabelPermissions(membership);
       return (
-        membership.permissions.manageArtists &&
-        relation.permissions.manageProfile
+        labelPermissions.manageArtists && relation.permissions.manageProfile
       );
     }
-    if (action === "release:edit") {
+    if (action === "release:create" || action === "release:edit") {
+      const labelPermissions = getEffectiveLabelPermissions(membership);
       return (
-        membership.permissions.manageReleases &&
-        relation.permissions.manageReleases
+        labelPermissions.manageReleases && relation.permissions.manageReleases
       );
     }
-    return (
-      membership.permissions.manageTracks && relation.permissions.manageTracks
-    );
+    const labelPermissions = getEffectiveLabelPermissions(membership);
+    return labelPermissions.manageTracks && relation.permissions.manageTracks;
   });
   return path?.membership.labelId;
 }
@@ -77,7 +85,7 @@ export function can(context: PermissionContext, action: PermissionAction) {
   if (context.isAdmin) return true;
 
   const artist = isActiveArtistMember(context.artistMembership)
-    ? context.artistMembership?.permissions
+    ? getEffectiveArtistPermissions(context.artistMembership!)
     : null;
   const labelPaths = getActiveLabelPaths(context);
 
@@ -89,7 +97,7 @@ export function can(context: PermissionContext, action: PermissionAction) {
         artist?.manageProfile ||
         labelPaths.some(
           ({ membership, relation }) =>
-            membership.permissions.manageArtists &&
+            getEffectiveLabelPermissions(membership).manageArtists &&
             relation.permissions.manageProfile,
         ),
       );
@@ -102,7 +110,7 @@ export function can(context: PermissionContext, action: PermissionAction) {
         artist?.manageReleases ||
         labelPaths.some(
           ({ membership, relation }) =>
-            membership.permissions.manageReleases &&
+            getEffectiveLabelPermissions(membership).manageReleases &&
             relation.permissions.manageReleases,
         ),
       );
@@ -111,7 +119,8 @@ export function can(context: PermissionContext, action: PermissionAction) {
         artist?.publish ||
         labelPaths.some(
           ({ membership, relation }) =>
-            membership.permissions.publish && relation.permissions.publish,
+            getEffectiveLabelPermissions(membership).publish &&
+            relation.permissions.publish,
         ),
       );
     case "track:create":
@@ -121,7 +130,7 @@ export function can(context: PermissionContext, action: PermissionAction) {
         artist?.manageTracks ||
         labelPaths.some(
           ({ membership, relation }) =>
-            membership.permissions.manageTracks &&
+            getEffectiveLabelPermissions(membership).manageTracks &&
             relation.permissions.manageTracks,
         ),
       );
@@ -130,26 +139,27 @@ export function can(context: PermissionContext, action: PermissionAction) {
     case "label:edit":
       return Boolean(
         context.labelMembership?.status === "active" &&
-        context.labelMembership.permissions.manageLabel,
+        getEffectiveLabelPermissions(context.labelMembership).manageLabel,
       );
     case "label:manage-artists":
       return Boolean(
         context.labelMembership?.status === "active" &&
-        context.labelMembership.permissions.manageArtists,
+        getEffectiveLabelPermissions(context.labelMembership).manageArtists,
       );
     case "label:manage-team":
       return Boolean(
         context.labelMembership?.status === "active" &&
-        context.labelMembership.permissions.manageTeam,
+        getEffectiveLabelPermissions(context.labelMembership).manageTeam,
       );
     case "analytics:view":
       return Boolean(
         artist?.viewAnalytics ||
         labelPaths.some(
-          ({ membership }) => membership.permissions.viewAnalytics,
+          ({ membership }) =>
+            getEffectiveLabelPermissions(membership).viewAnalytics,
         ) ||
         (context.labelMembership?.status === "active" &&
-          context.labelMembership.permissions.viewAnalytics),
+          getEffectiveLabelPermissions(context.labelMembership).viewAnalytics),
       );
     case "user:manage":
     case "platform:admin":

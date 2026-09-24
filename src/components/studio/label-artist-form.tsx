@@ -5,7 +5,13 @@ import { useState, type FormEvent } from "react";
 import { LoaderCircle, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export function LabelArtistForm({ labelId }: { labelId: string }) {
+export function LabelArtistForm({
+  labelId,
+  artistOptions = [],
+}: {
+  labelId: string;
+  artistOptions?: Array<{ id: string; name: string }>;
+}) {
   const router = useRouter();
   const [mode, setMode] = useState<"new" | "existing">("new");
   const [pending, setPending] = useState(false);
@@ -96,13 +102,22 @@ export function LabelArtistForm({ labelId }: { labelId: string }) {
         </div>
       ) : (
         <label className="mt-5 block text-xs font-medium">
-          Nemufy artist ID
-          <input
+          Artist
+          <select
             name="artistId"
             required
-            placeholder="artist-nemu"
             className="border-border bg-background mt-2 w-full rounded-xl border px-3 py-2.5 text-sm"
-          />
+            defaultValue=""
+          >
+            <option value="" disabled>
+              Search or choose an artist…
+            </option>
+            {artistOptions.map((artist) => (
+              <option key={artist.id} value={artist.id}>
+                {artist.name}
+              </option>
+            ))}
+          </select>
           <span className="text-muted-foreground mt-2 block">
             This creates a pending relationship; it does not silently take
             control.

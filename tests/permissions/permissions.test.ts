@@ -2,10 +2,6 @@ import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { isServiceAccountActive } from "../../src/lib/firebase/auth/access";
 import { can } from "../../src/lib/permissions/can";
-import {
-  getArtistPermissions,
-  getLabelPermissions,
-} from "../../src/lib/permissions/presets";
 import type {
   ArtistMembershipDocument,
   LabelArtistRelationDocument,
@@ -19,13 +15,12 @@ const timestamp = {
 };
 
 const artistMembership = (
-  role: "owner" | "manager" | "editor",
+  role: "owner" | "manager" | "editor" | "viewer",
   artistId = "artist-a",
 ): ArtistMembershipDocument => ({
   userId: "user-a",
   artistId,
   role,
-  permissions: getArtistPermissions(role),
   status: "active",
   invitedBy: null,
   createdAt: timestamp,
@@ -37,7 +32,6 @@ const labelMembership: LabelMembershipDocument = {
   userId: "user-a",
   labelId: "label-a",
   role: "manager",
-  permissions: getLabelPermissions("manager"),
   status: "active",
   invitedBy: null,
   createdAt: timestamp,
@@ -88,6 +82,26 @@ describe("central permission engine", () => {
     assert.equal(can(context, "artist:manage-team"), false);
   });
 
+  test("a viewer can inspect a workspace without changing catalog data", () => {
+    const context = {
+      isAdmin: false,
+      artistMembership: artistMembership("viewer"),
+    };
+    assert.equal(can(context, "artist:view"), true);
+    assert.equal(can(context, "analytics:view"), true);
+    assert.equal(can(context, "release:edit"), false);
+    assert.equal(can(context, "track:create"), false);
+  });
+
+  test("an explicit override is applied on top of a role preset", () => {
+    const membership = artistMembership("editor");
+    membership.permissionOverrides = { publish: true };
+    assert.equal(
+      can({ isAdmin: false, artistMembership: membership }, "release:publish"),
+      true,
+    );
+  });
+
   test("a label manager can manage only an actively linked artist", () => {
     assert.equal(
       can(
@@ -111,7 +125,6 @@ describe("central permission engine", () => {
       ...labelMembership,
       labelId: "label-read-only",
       role: "editor",
-      permissions: getLabelPermissions("editor"),
     };
     const readOnlyRelation: LabelArtistRelationDocument = {
       ...labelRelation,

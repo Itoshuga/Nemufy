@@ -55,6 +55,7 @@ export function MemberActions({
           {type === "label" && <option value="admin">Admin</option>}
           <option value="manager">Manager</option>
           <option value="editor">Editor</option>
+          <option value="viewer">Viewer</option>
         </select>
         <Button
           size="sm"

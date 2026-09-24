@@ -14,7 +14,7 @@ import type { InvitationDocument } from "@/types/firestore";
 
 const invitationSchema = z.object({
   email: z.email(),
-  role: z.enum(["owner", "admin", "manager", "editor"]),
+  role: z.enum(["owner", "admin", "manager", "editor", "viewer"]),
 });
 
 export async function inviteArtistMember(
@@ -23,7 +23,7 @@ export async function inviteArtistMember(
   input: unknown,
 ) {
   const data = invitationSchema
-    .extend({ role: z.enum(["owner", "manager", "editor"]) })
+    .extend({ role: z.enum(["owner", "manager", "editor", "viewer"]) })
     .parse(input);
   await requireArtistPermission(
     actor.user.uid,

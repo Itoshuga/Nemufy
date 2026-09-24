@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, MoreHorizontal, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type {
   SubscriptionPlan,
@@ -26,7 +26,7 @@ export function UserAdminActions({
   subscriptionStatus,
 }: UserAdminActionsProps) {
   const router = useRouter();
-  const [next, setNext] = useState(capabilities);
+  const [adminAccess, setAdminAccess] = useState(capabilities.admin);
   const [subscription, setSubscription] = useState({
     subscriptionPlan,
     subscriptionStatus,
@@ -61,10 +61,12 @@ export function UserAdminActions({
 
   async function saveCapabilities() {
     if (
-      await post(`/api/admin/users/${uid}/permissions`, { capabilities: next })
+      await post(`/api/admin/users/${uid}/permissions`, {
+        capabilities: { ...capabilities, admin: adminAccess },
+      })
     ) {
       setMessage(
-        "Capabilities and Custom Claims updated. The user must refresh their ID token and server session.",
+        "Administrator access updated. The user must refresh their session.",
       );
     }
   }
@@ -94,35 +96,31 @@ export function UserAdminActions({
   return (
     <div className="space-y-5">
       <section className="border-border bg-surface rounded-2xl border p-5">
-        <h2 className="font-semibold">Roles / capabilities</h2>
-        <p className="text-muted-foreground mt-1 text-xs">
-          Premium is separate and is never granted here.
-        </p>
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          {(["artist", "label", "admin"] as const).map((capability) => (
-            <label
-              key={capability}
-              className="border-border bg-background flex items-center gap-3 rounded-xl border p-3 text-sm capitalize"
-            >
-              <input
-                type="checkbox"
-                checked={next[capability]}
-                onChange={(event) =>
-                  setNext({ ...next, [capability]: event.target.checked })
-                }
-              />
-              {capability}
-            </label>
-          ))}
+        <div className="flex items-center gap-3">
+          <span className="bg-primary/10 text-primary grid size-9 place-items-center rounded-xl">
+            <ShieldCheck className="size-4" />
+          </span>
+          <h2 className="font-semibold">Administrator access</h2>
         </div>
+        <p className="text-muted-foreground mt-1 text-xs">
+          Artist and Label access comes from team memberships, not this switch.
+        </p>
+        <label className="border-border bg-background mt-5 flex items-center gap-3 rounded-xl border p-3 text-sm">
+          <input
+            type="checkbox"
+            checked={adminAccess}
+            onChange={(event) => setAdminAccess(event.target.checked)}
+          />{" "}
+          Administrator
+        </label>
         <Button className="mt-5" onClick={saveCapabilities} disabled={pending}>
           {pending && <LoaderCircle className="animate-spin" />}
-          Save capabilities
+          Save access
         </Button>
       </section>
 
       <section className="border-border bg-surface rounded-2xl border p-5">
-        <h2 className="font-semibold">Subscription</h2>
+        <h2 className="font-semibold">Account plan</h2>
         <p className="text-muted-foreground mt-1 text-xs">
           Prepared manually for now; no Stripe integration is present.
         </p>
@@ -163,12 +161,14 @@ export function UserAdminActions({
           onClick={saveSubscription}
           disabled={pending}
         >
-          Save subscription
+          Save plan
         </Button>
       </section>
 
       <section className="rounded-2xl border border-rose-400/15 bg-rose-400/5 p-5">
-        <h2 className="font-semibold">Account security</h2>
+        <h2 className="flex items-center gap-2 font-semibold">
+          <MoreHorizontal className="size-4" /> Account actions
+        </h2>
         <p className="text-muted-foreground mt-1 text-xs">
           Suspension is enforced by session checks and revokes Firebase refresh
           tokens.

@@ -61,9 +61,10 @@ async function main() {
 
   await auth.setCustomUserClaims(uid, {
     ...(user.customClaims ?? {}),
-    artist: capabilities.artist || undefined,
-    label: capabilities.label || undefined,
     admin: capabilities.admin || undefined,
+    // Artist and label access is derived from active memberships in Firestore.
+    artist: undefined,
+    label: undefined,
   });
 
   const batch = firestore.batch();

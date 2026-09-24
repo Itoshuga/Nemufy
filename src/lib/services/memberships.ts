@@ -8,10 +8,6 @@ import { collections } from "@/lib/firebase/firestore/collections";
 import { createAuditLogInTransaction } from "@/lib/firebase/firestore/repositories/audit-logs";
 import { PlatformError } from "@/lib/errors/platform-error";
 import {
-  getArtistPermissions,
-  getLabelPermissions,
-} from "@/lib/permissions/presets";
-import {
   requireArtistPermission,
   requireLabelPermission,
 } from "@/lib/permissions/server";
@@ -23,14 +19,14 @@ import type {
 const artistChangeSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("role"),
-    role: z.enum(["owner", "manager", "editor"]),
+    role: z.enum(["owner", "manager", "editor", "viewer"]),
   }),
   z.object({ action: z.literal("revoke") }),
 ]);
 const labelChangeSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("role"),
-    role: z.enum(["owner", "admin", "manager", "editor"]),
+    role: z.enum(["owner", "admin", "manager", "editor", "viewer"]),
   }),
   z.object({ action: z.literal("revoke") }),
 ]);
@@ -92,7 +88,7 @@ export async function changeArtistMembership(
     else
       transaction.update(reference, {
         role: change.role,
-        permissions: getArtistPermissions(change.role),
+        permissionOverrides: {},
         status: "active",
         updatedAt: now,
       });
@@ -167,7 +163,7 @@ export async function changeLabelMembership(
     else
       transaction.update(reference, {
         role: change.role,
-        permissions: getLabelPermissions(change.role),
+        permissionOverrides: {},
         status: "active",
         updatedAt: now,
       });

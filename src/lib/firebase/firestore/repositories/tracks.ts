@@ -2,6 +2,7 @@ import "server-only";
 
 import { getFirebaseAdminFirestore } from "@/lib/firebase/admin";
 import { collections } from "@/lib/firebase/firestore/collections";
+import { getFirestorePage } from "@/lib/firebase/firestore/pagination";
 import type { TrackDocument } from "@/types/firestore";
 
 export type TrackRecord = TrackDocument & { id: string };
@@ -56,4 +57,17 @@ export async function listTracks(limit = 100) {
     .limit(limit)
     .get();
   return snapshot.docs.map(mapTrack);
+}
+
+export async function listTracksPage(cursor?: string, limit = 50) {
+  const page = await getFirestorePage({
+    collection: collections.tracks,
+    orderBy: "updatedAt",
+    cursor,
+    limit,
+  });
+  return {
+    tracks: page.documents.map(mapTrack),
+    nextCursor: page.nextCursor,
+  };
 }

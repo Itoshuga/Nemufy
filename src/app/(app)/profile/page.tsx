@@ -12,7 +12,11 @@ export default async function ProfilePage() {
     getArtistsForUser(user.uid),
     getLabelsForUser(user.uid),
   ]);
-  const capabilities = getUserCapabilitySummary(profile);
+  const capabilities = getUserCapabilitySummary(profile, {
+    hasArtistMembership: artists.length > 0,
+    hasLabelMembership: labels.length > 0,
+    isAdmin: user.claims.admin,
+  });
 
   return (
     <div className="mx-auto max-w-5xl pb-16">
@@ -64,7 +68,7 @@ export default async function ProfilePage() {
             {artists.map(({ artist, membership }) => (
               <Link
                 key={artist.id}
-                href={`/studio/artists/${artist.id}`}
+                href={`/manage/artists/${artist.id}`}
                 className="bg-background hover:bg-surface-hover flex items-center justify-between rounded-xl p-3"
               >
                 <span className="flex items-center gap-3 text-sm font-medium">
@@ -77,7 +81,7 @@ export default async function ProfilePage() {
             {labels.map(({ label, membership }) => (
               <Link
                 key={label.id}
-                href={`/studio/labels/${label.id}`}
+                href={`/manage/labels/${label.id}`}
                 className="bg-background hover:bg-surface-hover flex items-center justify-between rounded-xl p-3"
               >
                 <span className="flex items-center gap-3 text-sm font-medium">
@@ -99,18 +103,18 @@ export default async function ProfilePage() {
       <div className="mt-6 flex flex-wrap gap-3">
         {(capabilities.isArtist || capabilities.isLabelMember) && (
           <Link
-            href="/studio"
+            href="/manage"
             className="bg-primary text-primary-foreground inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold"
           >
-            <Sparkles className="size-4" /> Open Studio
+            <Sparkles className="size-4" /> Manage content
           </Link>
         )}
         {capabilities.isAdmin && (
           <Link
-            href="/admin"
+            href="/manage/admin"
             className="border-border bg-surface inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-semibold"
           >
-            <Shield className="size-4" /> Admin Panel
+            <Shield className="size-4" /> Administration
           </Link>
         )}
       </div>

@@ -15,7 +15,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return hasVerifiedEmail() && request.auth.token.admin == true;
+      return hasVerifiedEmail() && request.auth.token.get('admin', false) == true;
     }
 
     function hasOnlyKeys(allowedKeys) {
@@ -44,12 +44,12 @@ service cloud.firestore {
 
     function canManageArtistTeam(artistId) {
       return hasActiveArtistMembership(artistId)
-        && get(artistMembershipPath(artistId)).data.permissions.manageTeam == true;
+        && get(artistMembershipPath(artistId)).data.role == 'owner';
     }
 
     function canManageLabelTeam(labelId) {
       return hasActiveLabelMembership(labelId)
-        && get(labelMembershipPath(labelId)).data.permissions.manageTeam == true;
+        && get(labelMembershipPath(labelId)).data.role in ['owner', 'admin'];
     }
 
     match /users/{userId} {

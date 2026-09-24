@@ -11,7 +11,13 @@ export const collections = {
   labelMemberships: "labelMemberships",
   labelArtists: "labelArtists",
   invitations: "invitations",
+  applications: "applications",
+  artistOwnerships: "artistOwnerships",
   auditLogs: "auditLogs",
+} as const;
+
+export const applicationSubcollections = {
+  messages: "messages",
 } as const;
 
 export const userSubcollections = {

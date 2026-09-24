@@ -10,11 +10,11 @@ Nemufy uses three independent layers:
 
 - **User** is every active, verified Nemufy account. It can listen and use normal account features.
 - **Premium** means `subscriptionPlan = premium` with `active` or `trialing` status. It is not a role.
-- **Artist capability** allows entry into artist onboarding/creation, but an active `artistMembership` is still required for a particular artist.
-- **Label capability** allows label onboarding/creation, but an active `labelMembership` is still required for a particular label.
+- **Artist access** exists when the user has an active `artistMembership` for that artist.
+- **Label access** exists when the user has an active `labelMembership` for that label.
 - **Admin** is a Firebase Custom Claim verified on every protected admin request. A Firestore field alone never grants admin access.
 
-Custom Claims contain only `admin`, `artist` and `label` booleans. Artist IDs, label IDs, detailed permissions, subscriptions and teams stay in Firestore.
+Custom Claims contain only the global `admin` boolean. Artist IDs, label IDs, roles, detailed permissions, subscriptions and teams stay in Firestore. The historical `users.capabilities.artist/label` values may remain temporarily for onboarding compatibility, but they do not grant entity access.
 
 ## Permission engine
 
@@ -41,9 +41,11 @@ All sensitive Route Handlers repeat authentication, active-account and entity au
 - Artist **Owner**: profile, releases, tracks, publishing, team and analytics.
 - Artist **Manager**: profile, releases, tracks, publishing and analytics; no ownership/team transfer.
 - Artist **Editor**: profile, releases and tracks; no publishing or team management.
+- Artist **Viewer**: read-only workspace and analytics.
 - Label **Owner/Admin**: every label permission.
 - Label **Manager**: label, artists, releases, tracks, publishing and analytics; no team management.
 - Label **Editor**: release and track editing; no publishing, artist linking or team management.
+- Label **Viewer**: read-only workspace and analytics.
 
 Presets are centralized in `src/lib/permissions/presets.ts`.
 
@@ -53,7 +55,7 @@ Presets are centralized in `src/lib/permissions/presets.ts`.
 | ----------------------------- | :--: | :-----------: | :----------: | :---: |
 | Listen                        |  ✓   |       ✓       |      ✓       |   ✓   |
 | Create playlist               |  ✓   |       ✓       |      ✓       |   ✓   |
-| Open Studio                   |  —   |       ✓       |      ✓       |   ✓   |
+| Open backoffice               |  —   |       ✓       |      ✓       |   ✓   |
 | Edit artist                   |  —   |      ✓*       |      ✓*      |   ✓   |
 | Create/edit release           |  —   |      ✓*       |      ✓*      |   ✓   |
 | Publish release               |  —   |      ✓*       |      ✓*      |   ✓   |
@@ -63,11 +65,13 @@ Presets are centralized in `src/lib/permissions/presets.ts`.
 | Manage users and capabilities |  —   |       —       |      —       |   ✓   |
 | Read platform audit logs      |  —   |       —       |      —       |   ✓   |
 
-`*` depends on active relationships and the stored permissions.
+`*` depends on active relationships, the role preset and any explicit override.
 
 ## Claims and token refresh
 
-Capability changes update Firebase Custom Claims through the Admin SDK and the matching Firestore state. Existing ID tokens can retain old claims for up to their normal lifetime. The admin UI explicitly reports that the affected user must force-refresh the Firebase ID token and recreate the server session; signing out and back in does both.
+Administrator changes update the Firebase Custom Claim through the Admin SDK and the matching Firestore state. Existing ID tokens can retain an old admin claim for up to their normal lifetime. The admin UI explicitly reports that the affected user must force-refresh the Firebase ID token and recreate the server session; signing out and back in does both.
+
+Membership role changes take effect from Firestore without adding entity-specific claims to a token. The backoffice context switcher is navigation only: every server page and mutation resolves the active membership again.
 
 Suspension updates `accountStatus`, revokes Firebase refresh tokens and is checked whenever Nemufy resolves an active server session.
 
@@ -79,7 +83,7 @@ After the target user has signed in at least once:
 pnpm firebase:set-capabilities -- --uid=FIREBASE_UID --admin=true
 ```
 
-To create a multi-role development account:
+To attach seeded development entities to an account:
 
 ```bash
 pnpm firebase:set-capabilities -- --uid=FIREBASE_UID --artist=true --label=true
@@ -87,3 +91,19 @@ pnpm firebase:seed -- --force --owner-uid=FIREBASE_UID
 ```
 
 Sign out and back in after any claim change. Never expose these Admin scripts in a browser bundle.
+
+## Existing-project migration
+
+Preview the membership and claim migration without writing:
+
+```bash
+pnpm firebase:migrate-backoffice
+```
+
+After reviewing counts and taking a Firestore backup, apply it once:
+
+```bash
+pnpm firebase:migrate-backoffice -- --apply
+```
+
+The script converts differences from materialized permission maps into `permissionOverrides`, removes the old `permissions` field, and removes legacy `artist`/`label` Custom Claims while preserving every other claim. It is safe to rerun because already-normalized memberships and claims are skipped.

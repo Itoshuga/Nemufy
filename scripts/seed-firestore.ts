@@ -1,14 +1,10 @@
 import { existsSync } from "node:fs";
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
-import { getFirestore, Timestamp } from "firebase-admin/firestore";
+import { FieldValue, getFirestore, Timestamp } from "firebase-admin/firestore";
 import { categories } from "../src/data/mock/categories";
 import { artists, playlists, releases, tracks } from "../src/data/mock/catalog";
-import {
-  defaultLabelArtistPermissions,
-  getArtistPermissions,
-  getLabelPermissions,
-} from "../src/lib/permissions/presets";
+import { defaultLabelArtistPermissions } from "../src/lib/permissions/presets";
 
 process.loadEnvFile?.(existsSync(".env.local") ? ".env.local" : ".env");
 
@@ -98,6 +94,7 @@ async function seedCatalog() {
         bio: artist.bio,
         verified: artist.verified,
         status: "active",
+        claimStatus: "unclaimed",
         monthlyListeners: artist.monthlyListeners,
         followerCount: artist.followerCount,
         categoryIds: artist.genres.map(toSlug),
@@ -292,7 +289,8 @@ async function seedCatalog() {
         userId: ownerUid,
         artistId: "artist-nemu",
         role: "owner",
-        permissions: getArtistPermissions("owner"),
+        permissions: FieldValue.delete(),
+        permissionOverrides: {},
         status: "active",
         invitedBy: null,
         createdAt: now,
@@ -309,7 +307,8 @@ async function seedCatalog() {
         userId: ownerUid,
         labelId: "label-midnight-records",
         role: "owner",
-        permissions: getLabelPermissions("owner"),
+        permissions: FieldValue.delete(),
+        permissionOverrides: {},
         status: "active",
         invitedBy: null,
         createdAt: now,

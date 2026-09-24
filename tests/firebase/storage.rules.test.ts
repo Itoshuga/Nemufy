@@ -7,13 +7,15 @@ import {
   type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
 import { ref, uploadString } from "firebase/storage";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 let testEnvironment: RulesTestEnvironment;
 
 before(async () => {
   testEnvironment = await initializeTestEnvironment({
-    projectId: "nemufy-storage-rules-test",
+    // Cross-service Storage rules resolve Firestore through the emulator's
+    // configured Firebase project, so this must match .firebaserc.
+    projectId: "nemufyapp",
     firestore: { rules: readFileSync("firestore.rules", "utf8") },
     storage: { rules: readFileSync("storage.rules", "utf8") },
   });
@@ -25,12 +27,8 @@ beforeEach(async () => {
     await setDoc(doc(context.firestore(), "artistMemberships/alice_artist-a"), {
       userId: "alice",
       artistId: "artist-a",
+      role: "owner",
       status: "active",
-      permissions: {
-        manageProfile: true,
-        manageReleases: true,
-        manageTracks: true,
-      },
     });
     await setDoc(doc(context.firestore(), "releases/release-a"), {
       allArtistIds: ["artist-a"],
@@ -103,6 +101,14 @@ describe("storage security", () => {
   });
 
   test("artist uploads require an active membership and scoped metadata", async () => {
+    await testEnvironment.withSecurityRulesDisabled(async (context) => {
+      const membership = await getDoc(
+        doc(context.firestore(), "artistMemberships/alice_artist-a"),
+      );
+      if (membership.data()?.role !== "owner") {
+        throw new Error("Owner membership fixture was not persisted.");
+      }
+    });
     const aliceStorage = verifiedStorage("alice");
     const bobStorage = verifiedStorage("bob");
     const metadata = {
@@ -132,6 +138,31 @@ describe("storage security", () => {
         "image",
         "raw",
         metadata,
+      ),
+    );
+  });
+
+  test("viewer memberships cannot upload managed media", async () => {
+    await testEnvironment.withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        doc(context.firestore(), "artistMemberships/viewer_artist-a"),
+        {
+          userId: "viewer",
+          artistId: "artist-a",
+          role: "viewer",
+          status: "active",
+        },
+      );
+    });
+    await assertFails(
+      uploadString(
+        ref(verifiedStorage("viewer"), "artists/artist-a/avatar/viewer.png"),
+        "image",
+        "raw",
+        {
+          contentType: "image/png",
+          customMetadata: { artistId: "artist-a" },
+        },
       ),
     );
   });

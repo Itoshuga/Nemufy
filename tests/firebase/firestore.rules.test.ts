@@ -35,14 +35,12 @@ beforeEach(async () => {
       artistId: "artist-a",
       role: "owner",
       status: "active",
-      permissions: { manageTeam: true },
     });
     await setDoc(doc(firestore, "artistMemberships/bob_artist-a"), {
       userId: "bob",
       artistId: "artist-a",
       role: "editor",
       status: "active",
-      permissions: { manageTeam: false },
     });
     await setDoc(doc(firestore, "auditLogs/log-1"), {
       actorUserId: "admin",

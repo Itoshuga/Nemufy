@@ -3,12 +3,17 @@ import { isPremiumUser, type UserCapabilitySummary } from "@/types/platform";
 
 export function getUserCapabilitySummary(
   profile: UserDocument,
+  access?: {
+    hasArtistMembership: boolean;
+    hasLabelMembership: boolean;
+    isAdmin: boolean;
+  },
 ): UserCapabilitySummary {
   return {
     isUser: true,
     isPremium: isPremiumUser(profile),
-    isArtist: profile.capabilities.artist,
-    isLabelMember: profile.capabilities.label,
-    isAdmin: profile.capabilities.admin,
+    isArtist: access?.hasArtistMembership ?? profile.capabilities.artist,
+    isLabelMember: access?.hasLabelMembership ?? profile.capabilities.label,
+    isAdmin: access?.isAdmin ?? profile.capabilities.admin,
   };
 }

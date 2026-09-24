@@ -118,6 +118,60 @@ export type UserListItem = Pick<
   | "lastLoginAt"
 > & { email: string | null; emailVerified: boolean };
 
+export type PaginatedUserListItem = UserListItem & {
+  authDisabled: boolean;
+  isAdmin: boolean;
+};
+
+export async function listUsersPage({
+  pageToken,
+  maxResults = 50,
+}: {
+  pageToken?: string;
+  maxResults?: number;
+} = {}): Promise<{
+  users: PaginatedUserListItem[];
+  nextPageToken?: string;
+}> {
+  const authPage = await getFirebaseAdminAuth().listUsers(
+    Math.min(Math.max(maxResults, 1), 1000),
+    pageToken,
+  );
+  if (authPage.users.length === 0) {
+    return { users: [], nextPageToken: authPage.pageToken };
+  }
+  const firestore = getFirebaseAdminFirestore();
+  const snapshots = await firestore.getAll(
+    ...authPage.users.map((authUser) =>
+      firestore.collection(collections.users).doc(authUser.uid),
+    ),
+  );
+  const users = authPage.users.flatMap((authUser, index) => {
+    const snapshot = snapshots[index];
+    if (!snapshot.exists) return [];
+    const profile = normalizeUserDocument(snapshot.data(), authUser.uid);
+    return [
+      {
+        uid: profile.uid,
+        username: profile.username,
+        displayName: profile.displayName,
+        avatarUrl: profile.avatarUrl,
+        accountStatus: profile.accountStatus,
+        capabilities: profile.capabilities,
+        subscriptionPlan: profile.subscriptionPlan,
+        subscriptionStatus: profile.subscriptionStatus,
+        createdAt: profile.createdAt,
+        lastLoginAt: profile.lastLoginAt,
+        email: authUser.email ?? null,
+        emailVerified: authUser.emailVerified,
+        authDisabled: authUser.disabled,
+        isAdmin: authUser.customClaims?.admin === true,
+      } satisfies PaginatedUserListItem,
+    ];
+  });
+  return { users, nextPageToken: authPage.pageToken };
+}
+
 export async function listUsers(limit = 100): Promise<UserListItem[]> {
   const firestoreSnapshot = await getFirebaseAdminFirestore()
     .collection(collections.users)

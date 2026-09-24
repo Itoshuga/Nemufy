@@ -4,6 +4,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { requireVerifiedUser } from "@/lib/firebase/auth/server";
 import { getUserProfile } from "@/lib/firebase/firestore/repositories/users";
 import { getUserCapabilitySummary } from "@/lib/users/capabilities";
+import { getStudioContexts } from "@/lib/studio/contexts";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,14 @@ export default async function ProtectedAppLayout({
 
   if (!profile || !profile.onboardingCompleted) redirect("/onboarding");
   if (profile.accountStatus !== "active") redirect("/login?status=unavailable");
-  const capabilities = getUserCapabilitySummary(profile);
+  const contexts = await getStudioContexts(sessionUser.uid);
+  const capabilities = getUserCapabilitySummary(profile, {
+    hasArtistMembership: contexts.some(
+      (context) => context.type === "artist" && context.role !== "label",
+    ),
+    hasLabelMembership: contexts.some((context) => context.type === "label"),
+    isAdmin: sessionUser.claims.admin,
+  });
 
   return (
     <AppShell

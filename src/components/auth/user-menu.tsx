@@ -1,11 +1,5 @@
 import Link from "next/link";
-import {
-  Building2,
-  LayoutDashboard,
-  Shield,
-  Sparkles,
-  UserRound,
-} from "lucide-react";
+import { ArrowLeft, LayoutDashboard, Sparkles, UserRound } from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
 
 export type AppUser = {
@@ -20,7 +14,13 @@ export type AppUser = {
   };
 };
 
-export function UserMenu({ user }: { user: AppUser }) {
+export function UserMenu({
+  user,
+  backoffice = false,
+}: {
+  user: AppUser;
+  backoffice?: boolean;
+}) {
   return (
     <details className="user-menu relative">
       <summary className="border-border bg-surface hover:bg-surface-hover focus-visible:ring-ring flex cursor-pointer list-none items-center gap-2 rounded-full border py-1 pr-3 pl-1 transition-colors outline-none focus-visible:ring-2">
@@ -47,33 +47,31 @@ export function UserMenu({ user }: { user: AppUser }) {
         </div>
         <div className="bg-border my-2 h-px" />
         <nav className="space-y-1" aria-label="Account destinations">
+          {backoffice && (
+            <Link
+              href="/"
+              className="text-muted-foreground hover:bg-surface-hover hover:text-foreground flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors"
+            >
+              <ArrowLeft className="size-4" /> Back to Nemufy
+            </Link>
+          )}
           <Link
             href="/profile"
             className="text-muted-foreground hover:bg-surface-hover hover:text-foreground flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors"
           >
             <UserRound className="size-4" /> Profile
           </Link>
-          {(user.capabilities.isArtist || user.capabilities.isLabelMember) && (
-            <Link
-              href="/studio"
-              className="text-muted-foreground hover:bg-surface-hover hover:text-foreground flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors"
-            >
-              {user.capabilities.isLabelMember ? (
-                <Building2 className="size-4" />
-              ) : (
-                <LayoutDashboard className="size-4" />
-              )}
-              Studio
-            </Link>
-          )}
-          {user.capabilities.isAdmin && (
-            <Link
-              href="/admin"
-              className="text-muted-foreground hover:bg-surface-hover hover:text-foreground flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors"
-            >
-              <Shield className="size-4" /> Admin Panel
-            </Link>
-          )}
+          {(user.capabilities.isArtist ||
+            user.capabilities.isLabelMember ||
+            user.capabilities.isAdmin) &&
+            !backoffice && (
+              <Link
+                href="/manage"
+                className="text-muted-foreground hover:bg-surface-hover hover:text-foreground flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors"
+              >
+                <LayoutDashboard className="size-4" /> Manage content
+              </Link>
+            )}
         </nav>
         <div className="bg-border my-2 h-px" />
         <LogoutButton />

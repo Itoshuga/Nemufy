@@ -12,20 +12,7 @@ export async function syncSystemCapabilityClaims(
   await auth.setCustomUserClaims(uid, {
     ...(user.customClaims ?? {}),
     admin: capabilities.admin || undefined,
-    artist: capabilities.artist || undefined,
-    label: capabilities.label || undefined,
-  });
-}
-
-export async function ensureSystemCapabilityClaim(
-  uid: string,
-  capability: keyof UserCapabilities,
-) {
-  const auth = getFirebaseAdminAuth();
-  const user = await auth.getUser(uid);
-  if (user.customClaims?.[capability] === true) return;
-  await auth.setCustomUserClaims(uid, {
-    ...(user.customClaims ?? {}),
-    [capability]: true,
+    artist: undefined,
+    label: undefined,
   });
 }

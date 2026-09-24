@@ -2,6 +2,7 @@ import "server-only";
 
 import { getFirebaseAdminFirestore } from "@/lib/firebase/admin";
 import { collections } from "@/lib/firebase/firestore/collections";
+import { getFirestorePage } from "@/lib/firebase/firestore/pagination";
 import type { PlaylistDocument } from "@/types/firestore";
 
 export type PlaylistRecord = PlaylistDocument & { id: string };
@@ -19,6 +20,25 @@ export async function listPlaylists(limit = 100) {
         ...(document.data() as PlaylistDocument),
       }) satisfies PlaylistRecord,
   );
+}
+
+export async function listPlaylistsPage(cursor?: string, limit = 50) {
+  const page = await getFirestorePage({
+    collection: collections.playlists,
+    orderBy: "updatedAt",
+    cursor,
+    limit,
+  });
+  return {
+    playlists: page.documents.map(
+      (document) =>
+        ({
+          id: document.id,
+          ...(document.data() as PlaylistDocument),
+        }) satisfies PlaylistRecord,
+    ),
+    nextCursor: page.nextCursor,
+  };
 }
 
 export async function getPlaylistsForUser(uid: string) {

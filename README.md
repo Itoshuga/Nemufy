@@ -1,6 +1,6 @@
 # Nemufy
 
-Nemufy est une plateforme web de streaming audio dédiée à l’ASMR. Elle réunit l’application d’écoute, un Artist Studio, un Label Studio et un panneau d’administration protégés par Firebase, des memberships et un moteur de permissions centralisé.
+Nemufy est une plateforme web de streaming audio dédiée à l’ASMR. Elle réunit l’application d’écoute et un backoffice unique pour les artistes, labels et administrateurs, protégé par Firebase, des memberships et un moteur de permissions centralisé.
 
 ## Stack
 
@@ -38,6 +38,8 @@ pnpm test:permissions       # tests unitaires des rôles et permissions
 pnpm firebase:seed -- --dry-run
 pnpm firebase:seed          # import du catalogue dans un projet vide
 pnpm firebase:set-capabilities -- --uid=UID --admin=true
+pnpm firebase:migrate-backoffice       # aperçu sans écriture
+pnpm firebase:migrate-backoffice -- --apply
 pnpm firebase:deploy:rules  # règles et index Firebase
 ```
 
@@ -48,8 +50,7 @@ src/
 ├── app/
 │   ├── (app)/              # routes protégées de l’application
 │   ├── (auth)/             # connexion, inscription, vérification et onboarding
-│   ├── (studio)/studio/    # Artist Studio, Label Studio et context switcher
-│   ├── (admin)/admin/      # panneau protégé par Custom Claim
+│   ├── (manage)/manage/    # backoffice Artiste, Label et Admin unifié
 │   └── api/                # session et mutations serveur autorisées
 ├── components/
 │   ├── auth/               # formulaires et contexte Firebase Auth
@@ -75,21 +76,25 @@ src/
 
 Nemufy prend en charge l’email/mot de passe et Google. Une connexion réussie échange le jeton Firebase contre un cookie de session serveur `__session`, `httpOnly`, `sameSite=lax` et sécurisé en production. L’accès exige une session valide, une adresse vérifiée, un profil finalisé et un compte actif. Un utilisateur suspendu est refusé lors de la résolution de session et ses refresh tokens sont révoqués.
 
-L’onboarding réserve le nom d’utilisateur dans une transaction Firestore afin d’éviter les doublons concurrents. Les mutations de Studio et d’administration passent par des Route Handlers utilisant l’Admin SDK : session, compte actif, membership et permission sont revérifiés à chaque opération. Les clients ne peuvent pas écrire directement les documents sensibles.
+L’onboarding réserve le nom d’utilisateur dans une transaction Firestore afin d’éviter les doublons concurrents. Les mutations du backoffice passent par des Route Handlers utilisant l’Admin SDK : session, compte actif, membership et permission sont revérifiés à chaque opération. Les clients ne peuvent pas écrire directement les documents sensibles.
 
 ## Rôles et permissions
 
-`User`, `Artist`, `Label` et `Admin` sont des capacités cumulables. `Premium` reste un abonnement séparé (`subscriptionPlan` et `subscriptionStatus`) et ne donne aucun droit de gestion. Les Custom Claims ne contiennent que les capacités système rapides ; artistes, labels, équipes et permissions détaillées restent dans Firestore.
+`User`, `Artist`, `Label` et `Admin` sont cumulables. `Premium` reste un abonnement séparé (`subscriptionPlan` et `subscriptionStatus`) et ne donne aucun droit de gestion. Seul `Admin` est un Custom Claim global. Les accès Artiste et Label proviennent exclusivement des memberships actifs dans Firestore.
 
 Les relations sont normalisées dans `artistMemberships`, `labelMemberships` et `labelArtists`. Le moteur `can(...)` centralise les décisions. Voir [`docs/roles-and-permissions.md`](docs/roles-and-permissions.md) et [`docs/firestore-schema.md`](docs/firestore-schema.md).
 
-## Artist Studio et Label Studio
+## Backoffice unifié
 
-`/studio` construit les contextes accessibles au compte courant. Le sélecteur permet de passer d’un artiste à un label sans changer de compte et sans accorder de permission supplémentaire. Releases, uploads, crédits, publication, artistes de label, équipes et analytics préparées sont décrits dans [`docs/studio.md`](docs/studio.md).
+`/manage` construit les contextes accessibles au compte courant. Le même sélecteur permet de passer d’un artiste à un label ou à l’administration sans changer de compte et sans accorder de permission supplémentaire.
 
-## Admin Panel
+- Artiste : Overview, Music, Profile, Team.
+- Label : Overview, Artists, Music, Team, Profile.
+- Admin : Overview, Users, Artists, Labels, Music, Playlists, Platform, Audit Logs.
 
-`/admin` exige simultanément une session Firebase valide, un compte actif et le Custom Claim `admin`. Il expose Users, Artists, Labels, Releases, Tracks, Playlists, Moderation, Platform, Settings et Audit Logs. Les capacités et abonnements sont modifiés via des APIs serveur auditées ; l’impersonation n’est pas implémentée.
+Releases et Tracks sont regroupés dans Music. Une release s’ouvre directement sur `/manage/releases/[releaseId]`. Les anciennes URLs `/studio/*` et `/admin/*` redirigent vers leur destination canonique. Les parcours sont détaillés dans [`docs/studio.md`](docs/studio.md).
+
+L’administration exige simultanément une session Firebase valide, un compte actif et le Custom Claim `admin`. Les pages admin ouvrent les mêmes workspaces Artiste et Label que les équipes, sans éditeur parallèle. Les accès et abonnements sont modifiés via des APIs serveur auditées ; l’impersonation n’est pas implémentée.
 
 ## Données
 
@@ -107,9 +112,15 @@ En développement, `src/data/catalog.ts` peut revenir au catalogue mock si Fires
 - `/verify-email`, `/onboarding`
 - `/`, `/search`, `/library`
 - `/artist/[slug]`, `/release/[slug]`, `/playlist/[slug]`
-- `/studio`, `/studio/artists/[artistId]/*`, `/studio/labels/[labelId]/*`
-- `/admin`, `/admin/users`, `/admin/artists`, `/admin/labels`
-- `/admin/releases`, `/admin/tracks`, `/admin/playlists`, `/admin/categories`, `/admin/audit-logs`
+- `/manage`
+- `/manage/artists/[artistId]`, `/music`, `/profile`, `/team`
+- `/manage/labels/[labelId]`, `/artists`, `/music`, `/profile`, `/team`
+- `/manage/releases/[releaseId]`
+- `/manage/admin`, `/users`, `/artists`, `/labels`, `/music`, `/playlists`, `/platform`, `/audit-logs`
+
+## Migration d’un projet existant
+
+`pnpm firebase:migrate-backoffice` affiche uniquement le nombre de memberships et de claims à convertir. Après sauvegarde et revue, ajouter `-- --apply`. Le script conserve les exceptions dans `permissionOverrides`, supprime les maps de permissions dupliquées et retire les anciens claims `artist`/`label`. Les rôles restent inchangés ; les utilisateurs devront renouveler leur session après application.
 
 ## Avant une mise en production
 

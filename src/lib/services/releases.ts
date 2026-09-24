@@ -7,6 +7,7 @@ import { collections } from "@/lib/firebase/firestore/collections";
 import { createAuditLogInTransaction } from "@/lib/firebase/firestore/repositories/audit-logs";
 import { PlatformError } from "@/lib/errors/platform-error";
 import { requireArtistPermission } from "@/lib/permissions/server";
+import { getLabelIdForArtistAction } from "@/lib/permissions/can";
 import {
   createReleaseSchema,
   createTrackSchema,
@@ -57,7 +58,7 @@ export async function createRelease(
       400,
     );
   }
-  await requireArtistPermission(
+  const permissionContext = await requireArtistPermission(
     actor.user.uid,
     actor.user.claims.admin,
     artistId,
@@ -70,6 +71,9 @@ export async function createRelease(
     ...new Set([...data.primaryArtistIds, ...data.featuredArtistIds]),
   ];
   const release: ReleaseDocument = {
+    createdByUserId: actor.user.uid,
+    labelId:
+      getLabelIdForArtistAction(permissionContext, "release:create") ?? null,
     title: data.title,
     slug: `${toSlug(data.title)}-${releaseReference.id.slice(0, 6)}`,
     type: data.type,
@@ -221,7 +225,7 @@ export async function duplicateRelease(
   artistId: string,
   releaseId: string,
 ) {
-  await requireArtistPermission(
+  const permissionContext = await requireArtistPermission(
     actor.user.uid,
     actor.user.claims.admin,
     artistId,
@@ -248,6 +252,11 @@ export async function duplicateRelease(
     const now = Timestamp.now();
     transaction.create(targetReference, {
       ...source,
+      createdByUserId: actor.user.uid,
+      labelId:
+        getLabelIdForArtistAction(permissionContext, "release:create") ??
+        source.labelId ??
+        null,
       title: `${source.title} (copy)`,
       slug: `${toSlug(source.title)}-copy-${targetReference.id.slice(0, 6)}`,
       coverUrl: null,

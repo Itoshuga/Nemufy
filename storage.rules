@@ -7,7 +7,7 @@ service firebase.storage {
     }
 
     function isAdmin() {
-      return hasVerifiedEmail() && request.auth.token.admin == true;
+      return hasVerifiedEmail() && request.auth.token.get('admin', false) == true;
     }
 
     function artistMembershipPath(artistId) {
@@ -46,7 +46,7 @@ service firebase.storage {
       return hasVerifiedEmail()
         && firestore.exists(artistMembershipPath(artistId))
         && firestore.get(artistMembershipPath(artistId)).data.status == 'active'
-        && firestore.get(artistMembershipPath(artistId)).data.permissions[permission] == true;
+        && firestore.get(artistMembershipPath(artistId)).data.get('role', 'viewer') in ['owner', 'manager', 'editor'];
     }
 
     function labelArtistPermission(artistId, labelId, labelPermission, relationPermission) {
@@ -55,7 +55,13 @@ service firebase.storage {
         && firestore.exists(labelMembershipPath(labelId))
         && firestore.exists(labelArtistPath(labelId, artistId))
         && firestore.get(labelMembershipPath(labelId)).data.status == 'active'
-        && firestore.get(labelMembershipPath(labelId)).data.permissions[labelPermission] == true
+        && (
+          firestore.get(labelMembershipPath(labelId)).data.get('role', 'viewer') in ['owner', 'admin']
+          || (firestore.get(labelMembershipPath(labelId)).data.get('role', 'viewer') == 'manager'
+            && labelPermission in ['manageLabel', 'manageArtists', 'manageReleases', 'manageTracks', 'publish'])
+          || (firestore.get(labelMembershipPath(labelId)).data.get('role', 'viewer') == 'editor'
+            && labelPermission in ['manageReleases', 'manageTracks'])
+        )
         && firestore.get(labelArtistPath(labelId, artistId)).data.status == 'active'
         && firestore.get(labelArtistPath(labelId, artistId)).data.permissions[relationPermission] == true;
     }
@@ -65,7 +71,7 @@ service firebase.storage {
         || directArtistPermission(artistId, directPermission)
         || labelArtistPermission(
           artistId,
-          request.resource.metadata.labelId,
+          request.resource.metadata.get('labelId', ''),
           labelPermission,
           relationPermission
         );

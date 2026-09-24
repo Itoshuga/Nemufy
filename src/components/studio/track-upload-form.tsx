@@ -2,7 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
-import { FileAudio, LoaderCircle, Upload, X } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  FileAudio,
+  LoaderCircle,
+  Upload,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   uploadTrackAudio,
@@ -31,27 +38,37 @@ export function TrackUploadForm({
   releaseId,
   nextTrackNumber,
   labelId,
+  primaryArtistName = "Primary artist",
+  artistOptions = [],
+  categoryOptions = [],
 }: {
   artistId: string;
   releaseId: string;
   nextTrackNumber: number;
   labelId?: string;
+  primaryArtistName?: string;
+  artistOptions?: Array<{ id: string; name: string }>;
+  categoryOptions?: Array<{ id: string; name: string }>;
 }) {
   const router = useRouter();
   const controllerRef = useRef<UploadController | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [pending, setPending] = useState(false);
+  const [complete, setComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!file) {
       setError("Choose an audio file first.");
       return;
     }
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const trackId = crypto.randomUUID();
     setPending(true);
+    setComplete(false);
     setError(null);
     try {
       const durationSeconds = await readAudioDuration(file);
@@ -71,17 +88,11 @@ export function TrackUploadForm({
           releaseId,
           title: form.get("title"),
           primaryArtistIds: [artistId],
-          featuredArtistIds: String(form.get("featuredArtistIds") ?? "")
-            .split(",")
-            .map((item) => item.trim())
-            .filter(Boolean),
+          featuredArtistIds: form.getAll("featuredArtistIds").map(String),
           durationSeconds,
           trackNumber: Number(form.get("trackNumber")),
           explicit: form.get("explicit") === "on",
-          categoryIds: String(form.get("categories") ?? "")
-            .split(",")
-            .map((item) => item.trim())
-            .filter(Boolean),
+          categoryIds: form.getAll("categoryIds").map(String),
           tags: String(form.get("tags") ?? "")
             .split(",")
             .map((item) => item.trim())
@@ -95,8 +106,9 @@ export function TrackUploadForm({
         throw new Error(
           payload.message ?? "Track metadata could not be saved.",
         );
-      event.currentTarget.reset();
+      formElement.reset();
       setFile(null);
+      setComplete(true);
       router.refresh();
     } catch (caught) {
       setError(
@@ -108,33 +120,52 @@ export function TrackUploadForm({
       setProgress(null);
     }
   }
+
   return (
-    <form
-      onSubmit={submit}
-      className="border-border bg-surface rounded-2xl border p-5"
-    >
-      <div className="flex items-center gap-3">
-        <span className="bg-primary/12 text-primary grid size-10 place-items-center rounded-xl">
-          <FileAudio className="size-5" />
+    <form onSubmit={submit} className="space-y-5">
+      <label className="border-border bg-background hover:border-primary/45 flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed p-5 text-center">
+        <Upload className="text-primary size-6" />
+        <span className="mt-3 text-sm font-medium">
+          {file?.name ?? "Drop audio file here"}
         </span>
+        <span className="text-subtle mt-1 text-xs">
+          or choose MP3, WAV, FLAC, MP4 or M4A
+        </span>
+        <input
+          type="file"
+          accept="audio/mpeg,audio/wav,audio/flac,audio/mp4,audio/x-m4a"
+          className="sr-only"
+          onChange={(event) => {
+            setFile(event.target.files?.[0] ?? null);
+            setComplete(false);
+          }}
+        />
+      </label>
+
+      {progress !== null ? (
         <div>
-          <p className="font-semibold">Add track</p>
-          <p className="text-muted-foreground text-xs">
-            Upload first, then persist validated metadata.
-          </p>
+          <div className="flex justify-between text-xs">
+            <span>Uploading {file?.name}</span>
+            <span>{progress}%</span>
+          </div>
+          <div className="bg-muted mt-2 h-2 rounded-full">
+            <div
+              className="bg-primary h-full rounded-full transition-[width]"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
         </div>
-      </div>
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <label className="text-xs font-medium">
-          Title
-          <input
-            name="title"
-            required
-            className="border-border bg-background mt-2 w-full rounded-xl border px-3 py-2.5 text-sm"
-          />
-        </label>
-        <label className="text-xs font-medium">
-          Track number
+      ) : complete ? (
+        <p className="flex items-center gap-2 text-xs text-emerald-300">
+          <Check className="size-4" /> Track added.
+        </p>
+      ) : null}
+
+      <div className="grid gap-4 sm:grid-cols-[1fr_100px]">
+        <Field label="Title">
+          <input name="title" required className="manage-input" />
+        </Field>
+        <Field label="Number">
           <input
             name="trackNumber"
             type="number"
@@ -142,81 +173,118 @@ export function TrackUploadForm({
             max={999}
             defaultValue={nextTrackNumber}
             required
-            className="border-border bg-background mt-2 w-full rounded-xl border px-3 py-2.5 text-sm"
+            className="manage-input"
           />
-        </label>
-        <label className="text-xs font-medium">
-          Featured artist IDs
-          <input
-            name="featuredArtistIds"
-            className="border-border bg-background mt-2 w-full rounded-xl border px-3 py-2.5 text-sm"
-          />
-        </label>
-        <label className="text-xs font-medium">
-          Categories
-          <input
-            name="categories"
-            className="border-border bg-background mt-2 w-full rounded-xl border px-3 py-2.5 text-sm"
-          />
-        </label>
-        <label className="text-xs font-medium sm:col-span-2">
-          Tags
-          <input
-            name="tags"
-            className="border-border bg-background mt-2 w-full rounded-xl border px-3 py-2.5 text-sm"
-          />
-        </label>
+        </Field>
       </div>
-      <label className="border-border bg-background hover:border-primary/40 mt-4 flex cursor-pointer items-center gap-3 rounded-xl border border-dashed p-4">
-        <Upload className="text-primary size-5" />
-        <span className="truncate text-sm">
-          {file?.name ?? "MP3, WAV, FLAC, MP4 or M4A · max 500 MB"}
-        </span>
-        <input
-          type="file"
-          accept="audio/mpeg,audio/wav,audio/flac,audio/mp4,audio/x-m4a"
-          className="sr-only"
-          onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-        />
-      </label>
-      <label className="mt-4 flex items-center gap-2 text-sm">
+
+      <div>
+        <p className="mb-2 text-xs font-medium">Artists</p>
+        <div className="border-border bg-background rounded-xl border p-3">
+          <span className="text-subtle text-[9px] font-semibold tracking-wide uppercase">
+            Primary
+          </span>
+          <p className="mt-1 text-sm font-medium">{primaryArtistName}</p>
+        </div>
+        {artistOptions.filter((artist) => artist.id !== artistId).length > 0 ? (
+          <fieldset className="mt-3">
+            <legend className="mb-2 text-xs font-medium">Featuring</legend>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {artistOptions
+                .filter((artist) => artist.id !== artistId)
+                .map((artist) => (
+                  <label
+                    key={artist.id}
+                    className="border-border bg-background flex items-center gap-3 rounded-xl border p-3 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      name="featuredArtistIds"
+                      value={artist.id}
+                    />{" "}
+                    {artist.name}
+                  </label>
+                ))}
+            </div>
+          </fieldset>
+        ) : null}
+      </div>
+
+      <label className="flex items-center gap-2 text-sm">
         <input name="explicit" type="checkbox" /> Explicit content
       </label>
-      {progress !== null && (
-        <div className="mt-4">
-          <div className="flex justify-between text-xs">
-            <span>Uploading audio</span>
-            <span>{progress}%</span>
-          </div>
-          <div className="bg-muted mt-2 h-2 rounded-full">
-            <div
-              className="bg-primary h-full rounded-full"
-              style={{ width: `${progress}%` }}
+
+      <details className="border-border rounded-xl border p-4">
+        <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold">
+          Advanced settings{" "}
+          <ChevronDown className="text-muted-foreground size-4" />
+        </summary>
+        <div className="mt-4 space-y-4">
+          {categoryOptions.length > 0 ? (
+            <fieldset>
+              <legend className="mb-2 text-xs font-medium">Categories</legend>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {categoryOptions.map((category) => (
+                  <label
+                    key={category.id}
+                    className="border-border bg-background flex items-center gap-2 rounded-lg border p-2 text-xs"
+                  >
+                    <input
+                      type="checkbox"
+                      name="categoryIds"
+                      value={category.id}
+                    />{" "}
+                    {category.name}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
+          <Field label="Tags">
+            <input
+              name="tags"
+              className="manage-input"
+              placeholder="sleep, rain, whisper"
             />
-          </div>
+          </Field>
         </div>
-      )}
-      {error && (
-        <p className="mt-3 text-xs text-rose-300" role="alert">
+      </details>
+
+      {error ? (
+        <p className="text-xs text-rose-300" role="alert">
           {error}
         </p>
-      )}
-      <div className="mt-5 flex gap-2">
+      ) : null}
+      <div className="flex gap-2">
         <Button disabled={pending || !file}>
-          {pending && <LoaderCircle className="animate-spin" />}Upload & add
-          track
+          {pending ? <LoaderCircle className="animate-spin" /> : <FileAudio />}
+          {pending ? "Uploading…" : "Add track"}
         </Button>
-        {pending && (
+        {pending ? (
           <Button
             type="button"
             variant="ghost"
             onClick={() => controllerRef.current?.cancel()}
           >
-            <X />
-            Cancel
+            <X /> Cancel
           </Button>
-        )}
+        ) : null}
       </div>
     </form>
+  );
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label>
+      <span className="mb-2 block text-xs font-medium">{label}</span>
+      {children}
+    </label>
   );
 }

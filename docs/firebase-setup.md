@@ -16,14 +16,14 @@ Project IDs are permanent and globally unique. Do not use a production project f
 From **Project settings → General → Your apps**, add a Web App and copy its configuration values into `.env.local`:
 
 ```env
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=
 NEXT_PUBLIC_FIREBASE_API_KEY=
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 NEXT_PUBLIC_FIREBASE_APP_ID=
-NEXT_PUBLIC_USE_FIREBASE_EMULATORS=false
+NEXT_PUBLIC_USE_FIREBASE_EMULATORS=
 ```
 
 These Web SDK identifiers are sent to the browser and are not Admin secrets. Security comes from Authentication, Security Rules, App Check when added, and server authorization.
@@ -81,7 +81,7 @@ FIREBASE_ADMIN_PROJECT_ID=
 FIREBASE_ADMIN_CLIENT_EMAIL=
 FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 FIREBASE_ADMIN_STORAGE_BUCKET=
-FIREBASE_CATALOG_SOURCE=firestore
+FIREBASE_CATALOG_SOURCE=
 ```
 
 The Admin initializer converts literal `\n` sequences back into real newlines. Never prefix Admin values with `NEXT_PUBLIC_`, never import `admin.ts` from a Client Component, and never commit the service-account JSON. Revoke unused keys from Google Cloud IAM.
@@ -156,11 +156,10 @@ The seed migrates typed mocks into normalized artist, track, release, playlist a
 To attach the seeded artists and label to a real development account, first sign in once, copy its Firebase Auth UID, then run:
 
 ```bash
-pnpm firebase:set-capabilities -- --uid=FIREBASE_UID --artist=true --label=true
 pnpm firebase:seed -- --force --owner-uid=FIREBASE_UID
 ```
 
-The seed creates owner memberships only when `--owner-uid` is provided. Sign out and back in afterwards so Firebase refreshes the ID token and Nemufy recreates its server session.
+The seed creates owner memberships only when `--owner-uid` is provided. Artist and label access is derived directly from these memberships; no corresponding Custom Claim is required.
 
 ## 11. Bootstrap the first administrator
 
@@ -170,7 +169,9 @@ An admin cannot be granted from the browser without an already trusted admin. Af
 pnpm firebase:set-capabilities -- --uid=FIREBASE_UID --admin=true
 ```
 
-The script updates Firebase Custom Claims and Firestore together and writes an audit record. The user must sign out and back in. All subsequent grants and revocations can be made from `/admin/users/[uid]` and are performed through protected server APIs.
+The script updates the Firebase `admin` Custom Claim and Firestore together and writes an audit record. The user must sign out and back in. All subsequent grants and revocations can be made from `/manage/admin/users/[uid]` and are performed through protected server APIs.
+
+For an existing project, preview the one-time backoffice migration with `pnpm firebase:migrate-backoffice`. Back up Firestore, review the printed counts, then use `pnpm firebase:migrate-backoffice -- --apply`. The script preserves exceptional permission differences as overrides and removes obsolete artist/label claims.
 
 ## 12. Deploy rules and indexes
 

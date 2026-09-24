@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 
 const javaCandidates = [
@@ -11,6 +12,9 @@ const javaPath = javaCandidates.find((candidate) =>
 );
 const environment = {
   ...process.env,
+  FIREBASE_CLI_DISABLE_UPDATE_CHECK: "true",
+  XDG_CONFIG_HOME:
+    process.env.XDG_CONFIG_HOME ?? join(tmpdir(), "nemufy-firebase-cli"),
   PATH: javaPath
     ? `${javaPath}${delimiter}${process.env.PATH ?? ""}`
     : process.env.PATH,

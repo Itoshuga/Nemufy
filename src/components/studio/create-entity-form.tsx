@@ -33,7 +33,7 @@ export function CreateEntityForm({ type }: { type: "artist" | "label" }) {
       };
       if (!response.ok || !payload.id)
         throw new Error(payload.message ?? "Creation failed.");
-      router.push(`/studio/${type}s/${payload.id}/overview`);
+      router.push(`/manage/${type}s/${payload.id}`);
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Creation failed.");

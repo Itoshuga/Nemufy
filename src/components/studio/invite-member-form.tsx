@@ -72,6 +72,7 @@ export function InviteMemberForm({
           name="role"
           className="border-border bg-background rounded-xl border px-3 py-2.5 text-sm"
         >
+          <option value="viewer">Viewer</option>
           <option value="editor">Editor</option>
           <option value="manager">Manager</option>
           {type === "label" && <option value="admin">Admin</option>}

@@ -7,7 +7,7 @@ export type SubscriptionPlan = "free" | "premium";
 export type SubscriptionStatus =
   "active" | "inactive" | "trialing" | "past_due" | "cancelled";
 
-export type ArtistMembershipRole = "owner" | "manager" | "editor";
+export type ArtistMembershipRole = "owner" | "manager" | "editor" | "viewer";
 export type ArtistMembershipStatus = "active" | "pending" | "revoked";
 
 export type ArtistPermissions = {
@@ -19,7 +19,8 @@ export type ArtistPermissions = {
   viewAnalytics: boolean;
 };
 
-export type LabelMembershipRole = "owner" | "admin" | "manager" | "editor";
+export type LabelMembershipRole =
+  "owner" | "admin" | "manager" | "editor" | "viewer";
 export type LabelMembershipStatus = "active" | "pending" | "revoked";
 
 export type LabelPermissions = {

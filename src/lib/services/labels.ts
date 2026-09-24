@@ -2,13 +2,10 @@ import "server-only";
 
 import { Timestamp } from "firebase-admin/firestore";
 import type { ActiveSession } from "@/lib/firebase/auth/server";
-import { ensureSystemCapabilityClaim } from "@/lib/firebase/auth/claims";
 import { getFirebaseAdminFirestore } from "@/lib/firebase/admin";
 import { collections } from "@/lib/firebase/firestore/collections";
 import { createAuditLogInTransaction } from "@/lib/firebase/firestore/repositories/audit-logs";
 import { labelArtistRelationId } from "@/lib/firebase/firestore/repositories/label-artists";
-import { labelMembershipId } from "@/lib/firebase/firestore/repositories/label-memberships";
-import { getLabelPermissions } from "@/lib/permissions/presets";
 import {
   requireArtistPermission,
   requireLabelPermission,
@@ -21,36 +18,23 @@ import {
 import type {
   LabelArtistRelationDocument,
   LabelDocument,
-  LabelMembershipDocument,
-  UserDocument,
 } from "@/types/firestore";
 import { PlatformError } from "@/lib/errors/platform-error";
 
 export async function createLabel(actor: ActiveSession, input: unknown) {
-  if (!actor.profile.capabilities.label && !actor.user.claims.admin) {
+  if (!actor.user.claims.admin) {
     throw new PlatformError(
       "FORBIDDEN",
-      "Label capability is required before creating a label.",
+      "New labels require an administrator or an approved application.",
       403,
     );
   }
   const data = createLabelSchema.parse(input);
   const firestore = getFirebaseAdminFirestore();
   const labelReference = firestore.collection(collections.labels).doc();
-  const membershipReference = firestore
-    .collection(collections.labelMemberships)
-    .doc(labelMembershipId(actor.user.uid, labelReference.id));
-  const userReference = firestore
-    .collection(collections.users)
-    .doc(actor.user.uid);
   const now = Timestamp.now();
 
   await firestore.runTransaction(async (transaction) => {
-    const userSnapshot = await transaction.get(userReference);
-    const user = userSnapshot.data() as UserDocument | undefined;
-    if (!user) {
-      throw new PlatformError("USER_NOT_FOUND", "User profile not found.", 404);
-    }
     const label: LabelDocument = {
       name: data.name,
       slug: `${toSlug(data.name)}-${labelReference.id.slice(0, 6)}`,
@@ -66,27 +50,7 @@ export async function createLabel(actor: ActiveSession, input: unknown) {
       updatedAt: now,
       schemaVersion: 1,
     };
-    const membership: LabelMembershipDocument = {
-      userId: actor.user.uid,
-      labelId: labelReference.id,
-      role: "owner",
-      permissions: getLabelPermissions("owner"),
-      status: "active",
-      invitedBy: null,
-      createdAt: now,
-      updatedAt: now,
-      schemaVersion: 1,
-    };
     transaction.create(labelReference, label);
-    transaction.create(membershipReference, membership);
-    transaction.update(userReference, {
-      capabilities: {
-        artist: user.capabilities?.artist === true,
-        label: true,
-        admin: user.capabilities?.admin === true,
-      },
-      updatedAt: now,
-    });
     createAuditLogInTransaction(transaction, {
       actorUserId: actor.user.uid,
       action: "label.create",
@@ -95,7 +59,6 @@ export async function createLabel(actor: ActiveSession, input: unknown) {
       context: { labelId: labelReference.id },
     });
   });
-  await ensureSystemCapabilityClaim(actor.user.uid, "label");
   return { id: labelReference.id };
 }
 
@@ -171,6 +134,7 @@ export async function createArtistForLabel(
       bio: data.description,
       verified: false,
       status: "active",
+      claimStatus: "unclaimed",
       monthlyListeners: 0,
       followerCount: 0,
       categoryIds: [],
