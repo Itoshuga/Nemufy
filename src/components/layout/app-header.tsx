@@ -10,6 +10,7 @@ const pageNames: Record<string, string> = {
   "/": "Discover",
   "/search": "Search",
   "/library": "Your Library",
+  "/profile": "Profile",
 };
 
 export function AppHeader({ user }: { user: AppUser }) {
