@@ -143,5 +143,6 @@ function targetCollection(targetType: AuditLogDocument["targetType"]) {
   if (targetType === "release") return collections.releases;
   if (targetType === "track") return collections.tracks;
   if (targetType === "playlist") return collections.playlists;
+  if (targetType === "application") return collections.applications;
   return null;
 }

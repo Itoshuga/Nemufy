@@ -50,6 +50,30 @@ beforeEach(async () => {
       context: {},
       createdAt: Timestamp.now(),
     });
+    await setDoc(doc(firestore, "applications/application-alice"), {
+      type: "artist_claim",
+      applicantUserId: "alice",
+      artistId: "artist-a",
+      status: "pending",
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    });
+    await setDoc(
+      doc(firestore, "applications/application-alice/messages/message-admin"),
+      {
+        authorType: "admin",
+        authorUserId: "admin",
+        message: "Please add another public link.",
+        createdAt: Timestamp.now(),
+      },
+    );
+    await setDoc(doc(firestore, "artistOwnerships/artist-a"), {
+      artistId: "artist-a",
+      ownerUserId: "alice",
+      ownerMembershipId: "alice_artist-a",
+      claimApplicationId: "application-alice",
+      claimedAt: Timestamp.now(),
+    });
   });
 });
 
@@ -197,6 +221,96 @@ describe("user data security", () => {
       setDoc(doc(aliceFirestore, "users/alice/likedTracks/track-public"), {
         ...like,
         unexpected: true,
+      }),
+    );
+  });
+});
+
+describe("creator application security", () => {
+  test("applicants can read only their own application and messages", async () => {
+    const aliceFirestore = verifiedContext("alice").firestore();
+    const bobFirestore = verifiedContext("bob").firestore();
+
+    await assertSucceeds(
+      getDoc(doc(aliceFirestore, "applications/application-alice")),
+    );
+    await assertSucceeds(
+      getDoc(
+        doc(
+          aliceFirestore,
+          "applications/application-alice/messages/message-admin",
+        ),
+      ),
+    );
+    await assertFails(
+      getDoc(doc(bobFirestore, "applications/application-alice")),
+    );
+    await assertFails(
+      getDoc(
+        doc(
+          bobFirestore,
+          "applications/application-alice/messages/message-admin",
+        ),
+      ),
+    );
+  });
+
+  test("application and message writes are restricted to trusted server routes", async () => {
+    const aliceFirestore = verifiedContext("alice").firestore();
+    const adminFirestore = testEnvironment
+      .authenticatedContext("admin", {
+        email_verified: true,
+        admin: true,
+      })
+      .firestore();
+
+    await assertFails(
+      setDoc(doc(aliceFirestore, "applications/application-new"), {
+        type: "artist_claim",
+        applicantUserId: "alice",
+        artistId: "artist-a",
+        status: "approved",
+      }),
+    );
+    await assertFails(
+      setDoc(
+        doc(
+          aliceFirestore,
+          "applications/application-alice/messages/message-user",
+        ),
+        { authorType: "applicant", message: "Self approval" },
+      ),
+    );
+    await assertFails(
+      setDoc(doc(adminFirestore, "applications/application-new"), {
+        applicantUserId: "admin",
+      }),
+    );
+  });
+
+  test("artist ownership is admin-readable and never client-writable", async () => {
+    const aliceFirestore = verifiedContext("alice").firestore();
+    const adminFirestore = testEnvironment
+      .authenticatedContext("admin", {
+        email_verified: true,
+        admin: true,
+      })
+      .firestore();
+
+    await assertFails(getDoc(doc(aliceFirestore, "artistOwnerships/artist-a")));
+    await assertSucceeds(
+      getDoc(doc(adminFirestore, "artistOwnerships/artist-a")),
+    );
+    await assertFails(
+      setDoc(doc(aliceFirestore, "artistOwnerships/artist-b"), {
+        artistId: "artist-b",
+        ownerUserId: "alice",
+      }),
+    );
+    await assertFails(
+      setDoc(doc(adminFirestore, "artistOwnerships/artist-b"), {
+        artistId: "artist-b",
+        ownerUserId: "admin",
       }),
     );
   });

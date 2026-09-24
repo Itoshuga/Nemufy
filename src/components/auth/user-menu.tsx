@@ -1,5 +1,11 @@
 import Link from "next/link";
-import { ArrowLeft, LayoutDashboard, Sparkles, UserRound } from "lucide-react";
+import {
+  ArrowLeft,
+  LayoutDashboard,
+  Sparkles,
+  UserRound,
+  WandSparkles,
+} from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
 
 export type AppUser = {
@@ -60,6 +66,12 @@ export function UserMenu({
             className="text-muted-foreground hover:bg-surface-hover hover:text-foreground flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors"
           >
             <UserRound className="size-4" /> Profile
+          </Link>
+          <Link
+            href="/creator"
+            className="text-muted-foreground hover:bg-surface-hover hover:text-foreground flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors"
+          >
+            <WandSparkles className="size-4" /> Creator access
           </Link>
           {(user.capabilities.isArtist ||
             user.capabilities.isLabelMember ||

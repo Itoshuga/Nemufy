@@ -40,16 +40,13 @@ export const submitApplicationSchema = z.discriminatedUnion("type", [
   labelCreationApplicationSchema,
 ]);
 
-export const applicantApplicationActionSchema = z.discriminatedUnion(
-  "action",
-  [
-    z.object({ action: z.literal("cancel") }),
-    z.object({
-      action: z.literal("respond"),
-      message: z.string().trim().min(2).max(4000),
-    }),
-  ],
-);
+export const applicantApplicationActionSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("cancel") }),
+  z.object({
+    action: z.literal("respond"),
+    message: z.string().trim().min(2).max(4000),
+  }),
+]);
 
 export const rejectionReasonSchema = z.enum([
   "unable_to_verify_ownership",

@@ -9,6 +9,7 @@ import { RoleBadge } from "@/components/ui/role-badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { requireActiveUser } from "@/lib/firebase/auth/server";
 import { getArtistTeam } from "@/lib/firebase/firestore/repositories/artist-memberships";
+import { getArtistOwnership } from "@/lib/firebase/firestore/repositories/artist-ownerships";
 import { getInvitations } from "@/lib/firebase/firestore/repositories/invitations";
 import { can } from "@/lib/permissions/can";
 import { getArtistPermissionContext } from "@/lib/permissions/server";
@@ -20,10 +21,11 @@ export default async function ManageArtistTeamPage({
 }) {
   const { artistId } = await params;
   const { user } = await requireActiveUser();
-  const [team, invitations, context] = await Promise.all([
+  const [team, invitations, context, ownership] = await Promise.all([
     getArtistTeam(artistId),
     getInvitations("artist", artistId),
     getArtistPermissionContext(user.uid, artistId, user.claims.admin),
+    getArtistOwnership(artistId),
   ]);
   const canManage = can(context, "artist:manage-team");
   return (
@@ -52,39 +54,52 @@ export default async function ManageArtistTeamPage({
           label="Artist team"
           columns={["Person", "Role", "Access", "Status", "Actions"]}
         >
-          {team.map(({ membership, user: member, email }) => (
-            <tr key={membership.id}>
-              <DataCell>
-                <p className="font-medium">
-                  {member?.displayName ?? member?.username ?? "Pending user"}
-                </p>
-                <p className="text-subtle mt-1 text-xs">
-                  {canManage ? (email ?? "—") : "Email hidden"}
-                </p>
-              </DataCell>
-              <DataCell>
-                <RoleBadge role={membership.role} />
-              </DataCell>
-              <DataCell>
-                <span className="text-xs">{roleSummary(membership.role)}</span>
-              </DataCell>
-              <DataCell>
-                <StatusBadge status={membership.status} />
-              </DataCell>
-              <DataCell>
-                {canManage && membership.status === "active" ? (
-                  <MemberActions
-                    type="artist"
-                    targetId={artistId}
-                    membershipId={membership.id}
-                    role={membership.role}
-                  />
-                ) : (
-                  "—"
-                )}
-              </DataCell>
-            </tr>
-          ))}
+          {team.map(({ membership, user: member, email }) => {
+            const isPrimaryOwner =
+              ownership?.ownerMembershipId === membership.id;
+            return (
+              <tr key={membership.id}>
+                <DataCell>
+                  <p className="font-medium">
+                    {member?.displayName ?? member?.username ?? "Pending user"}
+                  </p>
+                  <p className="text-subtle mt-1 text-xs">
+                    {canManage ? (email ?? "—") : "Email hidden"}
+                  </p>
+                </DataCell>
+                <DataCell>
+                  <RoleBadge role={membership.role} />
+                  {isPrimaryOwner ? (
+                    <span className="text-primary mt-1 block text-[10px] font-semibold uppercase">
+                      Primary owner
+                    </span>
+                  ) : null}
+                </DataCell>
+                <DataCell>
+                  <span className="text-xs">
+                    {roleSummary(membership.role)}
+                  </span>
+                </DataCell>
+                <DataCell>
+                  <StatusBadge status={membership.status} />
+                </DataCell>
+                <DataCell>
+                  {canManage &&
+                  membership.status === "active" &&
+                  !isPrimaryOwner ? (
+                    <MemberActions
+                      type="artist"
+                      targetId={artistId}
+                      membershipId={membership.id}
+                      role={membership.role}
+                    />
+                  ) : (
+                    "—"
+                  )}
+                </DataCell>
+              </tr>
+            );
+          })}
           {invitations.map((invitation) => (
             <tr key={invitation.id}>
               <DataCell>

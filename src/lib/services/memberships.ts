@@ -53,10 +53,14 @@ export async function changeArtistMembership(
     .where("artistId", "==", artistId)
     .where("role", "==", "owner")
     .where("status", "==", "active");
+  const ownershipReference = firestore
+    .collection(collections.artistOwnerships)
+    .doc(artistId);
   await firestore.runTransaction(async (transaction) => {
-    const [snapshot, owners] = await Promise.all([
+    const [snapshot, owners, ownership] = await Promise.all([
       transaction.get(reference),
       transaction.get(ownersQuery),
+      transaction.get(ownershipReference),
     ]);
     if (!snapshot.exists)
       throw new PlatformError(
@@ -71,6 +75,17 @@ export async function changeArtistMembership(
         "Membership belongs to another artist.",
         403,
       );
+    if (
+      ownership.exists &&
+      ownership.get("ownerMembershipId") === membershipId &&
+      (change.action === "revoke" || change.role !== "owner")
+    ) {
+      throw new PlatformError(
+        "VALIDATION_ERROR",
+        "Primary ownership can only be released by an administrator from the Ownership panel.",
+        409,
+      );
+    }
     if (
       membership.role === "owner" &&
       owners.size <= 1 &&

@@ -4,6 +4,7 @@ import { ManageShell } from "@/components/manage/manage-shell";
 import { requireActiveUser } from "@/lib/firebase/auth/server";
 import { getStudioContexts } from "@/lib/studio/contexts";
 import { getUserCapabilitySummary } from "@/lib/users/capabilities";
+import { countPendingApplications } from "@/lib/firebase/firestore/repositories/applications";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,10 @@ export default async function ManageLayout({
   children: ReactNode;
 }) {
   const { user, profile } = await requireActiveUser();
-  const contexts = await getStudioContexts(user.uid);
+  const [contexts, pendingRequestCount] = await Promise.all([
+    getStudioContexts(user.uid),
+    user.claims.admin ? countPendingApplications() : Promise.resolve(0),
+  ]);
   if (contexts.length === 0 && !user.claims.admin) redirect("/");
 
   const capabilities = getUserCapabilitySummary(profile, {
@@ -34,6 +38,7 @@ export default async function ManageLayout({
         username: profile.username,
         capabilities,
       }}
+      pendingRequestCount={pendingRequestCount}
     >
       {children}
     </ManageShell>

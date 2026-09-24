@@ -10,6 +10,8 @@ import type {
   ApplicationMessageDocument,
   ApplicationStatus,
   ApplicationType,
+  ArtistDocument,
+  UserDocument,
 } from "@/types/firestore";
 
 export type ApplicationRecord = ApplicationDocument & { id: string };
@@ -101,4 +103,68 @@ export async function listApplicationMessages(applicationId: string) {
         ...(document.data() as ApplicationMessageDocument),
       }) satisfies ApplicationMessageRecord,
   );
+}
+
+export async function getApplicationRelatedRecords(
+  applications: ApplicationRecord[],
+) {
+  const firestore = getFirebaseAdminFirestore();
+  const artistIds = [
+    ...new Set(
+      applications
+        .map((application) => application.artistId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const applicantIds = [
+    ...new Set(applications.map((application) => application.applicantUserId)),
+  ];
+  const [artistSnapshots, applicantSnapshots] = await Promise.all([
+    artistIds.length > 0
+      ? firestore.getAll(
+          ...artistIds.map((id) =>
+            firestore.collection(collections.artists).doc(id),
+          ),
+        )
+      : [],
+    applicantIds.length > 0
+      ? firestore.getAll(
+          ...applicantIds.map((id) =>
+            firestore.collection(collections.users).doc(id),
+          ),
+        )
+      : [],
+  ]);
+  return {
+    artists: new Map(
+      artistSnapshots.flatMap((snapshot) =>
+        snapshot.exists
+          ? [
+              [
+                snapshot.id,
+                {
+                  id: snapshot.id,
+                  ...(snapshot.data() as ArtistDocument),
+                },
+              ] as const,
+            ]
+          : [],
+      ),
+    ),
+    applicants: new Map(
+      applicantSnapshots.flatMap((snapshot) =>
+        snapshot.exists
+          ? [
+              [
+                snapshot.id,
+                {
+                  ...(snapshot.data() as UserDocument),
+                  uid: snapshot.id,
+                },
+              ] as const,
+            ]
+          : [],
+      ),
+    ),
+  };
 }

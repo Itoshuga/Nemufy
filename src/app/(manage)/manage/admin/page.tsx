@@ -16,7 +16,12 @@ export default async function ManageAdminOverviewPage() {
       title="Overview"
       description="The few platform signals that matter right now."
     >
-      <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+      <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        <Metric
+          label="Requests waiting"
+          value={counts.requests}
+          href="/manage/admin/requests"
+        />
         <Metric label="Users" value={counts.users} href="/manage/admin/users" />
         <Metric
           label="Artists"

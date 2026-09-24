@@ -131,9 +131,7 @@ function applicationData(
       ...(normalizeOptional(input.websiteUrl)
         ? { websiteUrl: normalizeOptional(input.websiteUrl) }
         : {}),
-      ...(input.socialUrls.length > 0
-        ? { socialUrls: input.socialUrls }
-        : {}),
+      ...(input.socialUrls.length > 0 ? { socialUrls: input.socialUrls } : {}),
       ...(normalizeOptional(input.description)
         ? { description: normalizeOptional(input.description) }
         : {}),
@@ -144,10 +142,7 @@ function applicationData(
   };
 }
 
-export async function submitApplication(
-  actor: ActiveSession,
-  input: unknown,
-) {
+export async function submitApplication(actor: ActiveSession, input: unknown) {
   const data = submitApplicationSchema.parse(input);
   const firestore = getFirebaseAdminFirestore();
   const applicationReference = firestore
@@ -160,21 +155,23 @@ export async function submitApplication(
       .where("applicantUserId", "==", actor.user.uid)
       .where("type", "==", data.type)
       .where("status", "in", activeApplicationStatuses);
-
-    const reads: Array<Promise<FirebaseFirestore.DocumentSnapshot | FirebaseFirestore.QuerySnapshot>> = [
-      transaction.get(duplicateQuery),
-    ];
     let artistReference: FirebaseFirestore.DocumentReference | undefined;
     let ownershipReference: FirebaseFirestore.DocumentReference | undefined;
     if (data.type === "artist_claim") {
       duplicateQuery = duplicateQuery.where("artistId", "==", data.artistId);
-      reads[0] = transaction.get(duplicateQuery);
       artistReference = firestore
         .collection(collections.artists)
         .doc(data.artistId);
       ownershipReference = firestore
         .collection(collections.artistOwnerships)
         .doc(data.artistId);
+    }
+    const reads: Array<
+      Promise<
+        FirebaseFirestore.DocumentSnapshot | FirebaseFirestore.QuerySnapshot
+      >
+    > = [transaction.get(duplicateQuery)];
+    if (artistReference && ownershipReference) {
       reads.push(
         transaction.get(artistReference),
         transaction.get(ownershipReference),
@@ -191,7 +188,8 @@ export async function submitApplication(
     }
     if (data.type === "artist_claim") {
       const artistSnapshot = results[1] as FirebaseFirestore.DocumentSnapshot;
-      const ownershipSnapshot = results[2] as FirebaseFirestore.DocumentSnapshot;
+      const ownershipSnapshot =
+        results[2] as FirebaseFirestore.DocumentSnapshot;
       if (!artistSnapshot.exists) {
         throw new PlatformError("ARTIST_NOT_FOUND", "Artist not found.", 404);
       }
@@ -255,9 +253,7 @@ export async function updateOwnApplication(
         action: "application.cancel",
         targetType: "application",
         targetId: applicationId,
-        context: application.artistId
-          ? { artistId: application.artistId }
-          : {},
+        context: application.artistId ? { artistId: application.artistId } : {},
       });
       return;
     }
@@ -301,11 +297,7 @@ export async function reviewApplication(
     return approveApplication(actor, applicationId);
   }
   if (data.action === "link_existing") {
-    return linkApplicationToExistingArtist(
-      actor,
-      applicationId,
-      data.artistId,
-    );
+    return linkApplicationToExistingArtist(actor, applicationId, data.artistId);
   }
   const firestore = getFirebaseAdminFirestore();
   const reference = firestore
@@ -334,9 +326,7 @@ export async function reviewApplication(
         action: "application.review-start",
         targetType: "application",
         targetId: applicationId,
-        context: application.artistId
-          ? { artistId: application.artistId }
-          : {},
+        context: application.artistId ? { artistId: application.artistId } : {},
       });
       return;
     }
@@ -359,9 +349,7 @@ export async function reviewApplication(
         action: "application.request-information",
         targetType: "application",
         targetId: applicationId,
-        context: application.artistId
-          ? { artistId: application.artistId }
-          : {},
+        context: application.artistId ? { artistId: application.artistId } : {},
       });
       return;
     }
@@ -395,7 +383,9 @@ async function linkApplicationToExistingArtist(
   const applicationReference = firestore
     .collection(collections.applications)
     .doc(applicationId);
-  const artistReference = firestore.collection(collections.artists).doc(artistId);
+  const artistReference = firestore
+    .collection(collections.artists)
+    .doc(artistId);
   const ownershipReference = firestore
     .collection(collections.artistOwnerships)
     .doc(artistId);
@@ -478,10 +468,7 @@ async function linkApplicationToExistingArtist(
   return { id: applicationId };
 }
 
-async function approveApplication(
-  actor: ActiveSession,
-  applicationId: string,
-) {
+async function approveApplication(actor: ActiveSession, applicationId: string) {
   const firestore = getFirebaseAdminFirestore();
   const applicationReference = firestore
     .collection(collections.applications)
@@ -541,7 +528,9 @@ async function approveArtistApplication(
       );
     }
     approvedArtistId = artistId;
-    const artistReference = firestore.collection(collections.artists).doc(artistId);
+    const artistReference = firestore
+      .collection(collections.artists)
+      .doc(artistId);
     const ownershipReference = firestore
       .collection(collections.artistOwnerships)
       .doc(artistId);
@@ -558,14 +547,19 @@ async function approveArtistApplication(
       .where("type", "==", "artist_claim")
       .where("artistId", "==", artistId)
       .where("status", "in", activeApplicationStatuses);
-    const [artistSnapshot, ownershipSnapshot, userSnapshot, membershipSnapshot, competingClaims] =
-      await Promise.all([
-        transaction.get(artistReference),
-        transaction.get(ownershipReference),
-        transaction.get(userReference),
-        transaction.get(membershipQuery),
-        transaction.get(competingClaimsQuery),
-      ]);
+    const [
+      artistSnapshot,
+      ownershipSnapshot,
+      userSnapshot,
+      membershipSnapshot,
+      competingClaims,
+    ] = await Promise.all([
+      transaction.get(artistReference),
+      transaction.get(ownershipReference),
+      transaction.get(userReference),
+      transaction.get(membershipQuery),
+      transaction.get(competingClaimsQuery),
+    ]);
     if (!userSnapshot.exists) {
       throw new PlatformError("USER_NOT_FOUND", "Applicant not found.", 404);
     }
@@ -632,8 +626,7 @@ async function approveArtistApplication(
         .collection(collections.artistMemberships)
         .doc(artistMembershipId(application.applicantUserId, artistId));
     const existingMembershipData = existingMembership?.data() as
-      | ArtistMembershipDocument
-      | undefined;
+      ArtistMembershipDocument | undefined;
     const membership: ArtistMembershipDocument = {
       userId: application.applicantUserId,
       artistId,
@@ -789,6 +782,7 @@ async function approveLabelCreation(
     });
     transaction.update(applicationReference, {
       status: "approved",
+      labelId: labelReference.id,
       reviewedAt: now,
       reviewedByUserId: actor.user.uid,
       messageToApplicant: "Your label application has been approved.",
@@ -824,7 +818,9 @@ export async function releaseArtistOwnership(
   const ownershipReference = firestore
     .collection(collections.artistOwnerships)
     .doc(artistId);
-  const artistReference = firestore.collection(collections.artists).doc(artistId);
+  const artistReference = firestore
+    .collection(collections.artists)
+    .doc(artistId);
   await firestore.runTransaction(async (transaction) => {
     const [ownershipSnapshot, artistSnapshot] = await Promise.all([
       transaction.get(ownershipReference),

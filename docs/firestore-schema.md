@@ -65,6 +65,7 @@ Artists exist independently of users and labels.
   bio: string
   verified: boolean
   status: "active" | "pending" | "suspended" | "archived"
+  claimStatus: "unclaimed" | "claimed"
   monthlyListeners: number
   followerCount: number
   categoryIds: string[]
@@ -142,6 +143,75 @@ This is a first-class relationship, not an array on the label:
 
 An artist created by a label receives an active relation without requiring a user. Linking an existing artist starts as `pending`.
 
+## `applications/{applicationId}`
+
+All artist claims, new-artist requests and new-label requests share one inbox:
+
+```ts
+{
+  type: "artist_claim" | "artist_creation" | "label_creation";
+  applicantUserId: string;
+  status:
+    | "pending"
+    | "under_review"
+    | "needs_information"
+    | "approved"
+    | "rejected"
+    | "cancelled";
+  artistId?: string;
+  labelId?: string;
+  evidence?: {
+    websiteUrl?: string;
+    socialUrls?: string[];
+    contactEmail?: string;
+  };
+  requestedArtist?: {
+    name: string;
+    biography?: string;
+    websiteUrl?: string;
+    socialUrls?: string[];
+    categoryIds?: string[];
+  };
+  requestedLabel?: {
+    name: string;
+    websiteUrl?: string;
+    socialUrls?: string[];
+    description?: string;
+  };
+  representativeRole?: string;
+  message: string | null;
+  reviewedAt: Timestamp | null;
+  reviewedByUserId: string | null;
+  adminNote: string | null;
+  messageToApplicant: string | null;
+  resolutionReason: string | null;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  schemaVersion: 1;
+}
+```
+
+Conversation entries use `applications/{applicationId}/messages/{messageId}` with `authorType`, `authorUserId`, `message` and `createdAt`.
+
+## `artistOwnerships/{artistId}`
+
+The document ID is always the artist ID and therefore permits only one active ownership source of truth:
+
+```ts
+{
+  artistId: string;
+  ownerUserId: string;
+  ownerMembershipId: string;
+  claimApplicationId: string | null;
+  claimedAt: Timestamp;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  schemaVersion: 1;
+}
+```
+
+An ownership is distinct from an Artist Owner role and from a `labelArtists` relationship. Ownership approval creates both the ownership document and an active Owner membership. Releasing ownership revokes that membership but leaves label management untouched.
+
 ## `releases/{releaseId}` and `tracks/{trackId}`
 
 Releases support `draft`, `scheduled`, `published` and `archived`. New records also store `createdByUserId` and, when created through a label relationship, `labelId`. These fields are optional while older documents are migrated. Covers store both `coverUrl` and `coverStoragePath`. Tracks store structured `primaryArtistIds`, `featuredArtistIds`, `allArtistIds`, ordered `artistCredits`, `audioUrl` and `audioStoragePath`.
@@ -158,7 +228,7 @@ Invitations contain a target type and ID, normalized email, role, inviter, statu
 {
   actorUserId: string
   action: string
-  targetType: "user" | "artist" | "label" | "release" | "track" | "playlist" | "membership"
+  targetType: "user" | "artist" | "label" | "release" | "track" | "playlist" | "membership" | "application"
   targetId: string
   context: { artistId?: string; labelId?: string }
   metadata?: Record<string, unknown>
@@ -170,4 +240,4 @@ Clients cannot create, update or delete audit logs. Only trusted Admin SDK servi
 
 ## Indexes
 
-`firestore.indexes.json` includes composite indexes for active memberships by user, user/entity membership lookups, active label/artist relationships, invitations, published catalog and playlist sorting.
+`firestore.indexes.json` includes composite indexes for active memberships by user, user/entity membership lookups, active label/artist relationships, invitations, application inbox filters and duplicate-claim checks, published catalog and playlist sorting.

@@ -30,8 +30,8 @@ const firebaseCli = join(
 );
 const testCommand =
   process.platform === "win32"
-    ? `"${process.execPath}" --import tsx --test tests/firebase/firestore.rules.test.ts tests/firebase/storage.rules.test.ts`
-    : `${process.execPath} --import tsx --test tests/firebase/firestore.rules.test.ts tests/firebase/storage.rules.test.ts`;
+    ? `"${process.execPath}" --conditions=react-server --import tsx --test tests/firebase/firestore.rules.test.ts tests/firebase/storage.rules.test.ts tests/applications/application-services.test.ts`
+    : `${process.execPath} --conditions=react-server --import tsx --test tests/firebase/firestore.rules.test.ts tests/firebase/storage.rules.test.ts tests/applications/application-services.test.ts`;
 const result = spawnSync(
   process.execPath,
   [firebaseCli, "emulators:exec", "--only", "firestore,storage", testCommand],

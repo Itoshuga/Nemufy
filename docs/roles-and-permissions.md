@@ -16,6 +16,17 @@ Nemufy uses three independent layers:
 
 Custom Claims contain only the global `admin` boolean. Artist IDs, label IDs, roles, detailed permissions, subscriptions and teams stay in Firestore. The historical `users.capabilities.artist/label` values may remain temporarily for onboarding compatibility, but they do not grant entity access.
 
+## Artist ownership
+
+Human ownership requires two records with different responsibilities:
+
+- `artistOwnerships/{artistId}` identifies the single primary, verified owner.
+- An active `artistMembership` with role `owner` grants the management permissions.
+
+An Owner membership alone can be a historical or team role and is not automatically proof of primary ownership. Likewise, a label can manage an artist through `labelArtists` without owning the artist identity. Approving an artist claim creates both records atomically; releasing ownership revokes the primary membership and makes the profile claimable again without unlinking its label.
+
+Creator applications are not roles and never authorize access while pending. New artist and label access is granted only after an administrator approves the application through the trusted Admin SDK service.
+
 ## Permission engine
 
 `src/lib/permissions/can.ts` is the central pure authorization engine. It receives a trusted context resolved by `src/lib/permissions/server.ts`:
@@ -107,3 +118,12 @@ pnpm firebase:migrate-backoffice -- --apply
 ```
 
 The script converts differences from materialized permission maps into `permissionOverrides`, removes the old `permissions` field, and removes legacy `artist`/`label` Custom Claims while preserving every other claim. It is safe to rerun because already-normalized memberships and claims are skipped.
+
+Historical artist ownership is migrated separately and conservatively:
+
+```bash
+pnpm firebase:migrate-ownerships
+pnpm firebase:migrate-ownerships -- --apply
+```
+
+Only artists with exactly one active historical Owner membership are claimed automatically. Ambiguous artists are reported and left unclaimed for manual review.

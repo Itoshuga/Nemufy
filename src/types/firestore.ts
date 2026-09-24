@@ -22,9 +22,7 @@ export type AccountStatus = "active" | "suspended" | "deleted";
 export type CatalogStatus = "draft" | "scheduled" | "published" | "archived";
 export type ArtistClaimStatus = "unclaimed" | "claimed";
 export type ApplicationType =
-  | "artist_claim"
-  | "artist_creation"
-  | "label_creation";
+  "artist_claim" | "artist_creation" | "label_creation";
 export type ApplicationStatus =
   | "pending"
   | "under_review"
@@ -258,6 +256,7 @@ export type ApplicationDocument = {
   applicantUserId: string;
   status: ApplicationStatus;
   artistId?: string;
+  labelId?: string;
   evidence?: ApplicationEvidence;
   requestedArtist?: RequestedArtistDocument;
   requestedLabel?: RequestedLabelDocument;

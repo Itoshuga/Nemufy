@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { ArrowRight, FileMusic, Pencil, Plus } from "lucide-react";
+import { ReleaseArtistOwnershipButton } from "@/components/admin/release-artist-ownership-button";
 import { BackofficePage } from "@/components/manage/backoffice-page";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { requireActiveUser } from "@/lib/firebase/auth/server";
 import { getArtistById } from "@/lib/firebase/firestore/repositories/artists";
+import { getArtistOwnershipWithOwner } from "@/lib/firebase/firestore/repositories/artist-ownerships";
 import { getReleasesForArtist } from "@/lib/firebase/firestore/repositories/releases";
 import { getTracksForArtist } from "@/lib/firebase/firestore/repositories/tracks";
 import { can } from "@/lib/permissions/can";
@@ -18,12 +20,16 @@ export default async function ManageArtistOverviewPage({
 }) {
   const { artistId } = await params;
   const { user } = await requireActiveUser();
-  const [artist, releases, tracks, permissionContext] = await Promise.all([
-    getArtistById(artistId),
-    getReleasesForArtist(artistId),
-    getTracksForArtist(artistId),
-    getArtistPermissionContext(user.uid, artistId, user.claims.admin),
-  ]);
+  const [artist, releases, tracks, permissionContext, ownershipDetails] =
+    await Promise.all([
+      getArtistById(artistId),
+      getReleasesForArtist(artistId),
+      getTracksForArtist(artistId),
+      getArtistPermissionContext(user.uid, artistId, user.claims.admin),
+      user.claims.admin
+        ? getArtistOwnershipWithOwner(artistId)
+        : Promise.resolve(null),
+    ]);
   if (!artist) return null;
   const drafts = releases.filter((release) => release.status === "draft");
   const canCreate = can(permissionContext, "release:create");
@@ -59,6 +65,47 @@ export default async function ManageArtistOverviewPage({
           </Link>
         </Button>
       </div>
+
+      {user.claims.admin ? (
+        <section className="border-border bg-surface mt-8 max-w-3xl rounded-2xl border p-5">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-subtle text-[10px] font-semibold tracking-wide uppercase">
+                Ownership
+              </p>
+              {ownershipDetails ? (
+                <>
+                  <h2 className="mt-2 text-lg font-semibold">Claimed</h2>
+                  <p className="text-muted-foreground mt-2 text-sm">
+                    Owner:{" "}
+                    {ownershipDetails.owner?.displayName ??
+                      ownershipDetails.owner?.username ??
+                      ownershipDetails.email ??
+                      "Nemufy member"}
+                  </p>
+                  <p className="text-subtle mt-1 text-xs">
+                    Claimed{" "}
+                    {ownershipDetails.ownership.claimedAt
+                      .toDate()
+                      .toLocaleDateString()}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h2 className="mt-2 text-lg font-semibold">Unclaimed</h2>
+                  <p className="text-muted-foreground mt-2 text-sm">
+                    This artist can currently be claimed by a user. Label
+                    management remains separate.
+                  </p>
+                </>
+              )}
+            </div>
+            {ownershipDetails ? (
+              <ReleaseArtistOwnershipButton artistId={artistId} />
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       <div className="mt-10 grid gap-6 xl:grid-cols-2">
         <OverviewList

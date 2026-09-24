@@ -7,6 +7,7 @@ import {
   Activity,
   ArrowLeft,
   Building2,
+  ClipboardCheck,
   Disc3,
   LayoutDashboard,
   ListMusic,
@@ -27,9 +28,13 @@ type NavigationItem = {
   label: string;
   icon: typeof LayoutDashboard;
   exact?: boolean;
+  badge?: number;
 };
 
-function getNavigation(pathname: string): NavigationItem[] {
+function getNavigation(
+  pathname: string,
+  pendingRequestCount: number,
+): NavigationItem[] {
   const artistId = pathname.match(/^\/manage\/artists\/([^/]+)/)?.[1];
   if (artistId) {
     const root = `/manage/artists/${artistId}`;
@@ -60,6 +65,12 @@ function getNavigation(pathname: string): NavigationItem[] {
         label: "Overview",
         icon: LayoutDashboard,
         exact: true,
+      },
+      {
+        href: "/manage/admin/requests",
+        label: "Requests",
+        icon: ClipboardCheck,
+        badge: pendingRequestCount,
       },
       { href: "/manage/admin/users", label: "Users", icon: Users },
       { href: "/manage/admin/artists", label: "Artists", icon: Disc3 },
@@ -96,16 +107,18 @@ export function ManageShell({
   contexts,
   isAdmin,
   user,
+  pendingRequestCount = 0,
 }: {
   children: ReactNode;
   contexts: StudioContext[];
   isAdmin: boolean;
   user: AppUser;
+  pendingRequestCount?: number;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const navigation = getNavigation(pathname);
+  const navigation = getNavigation(pathname, pendingRequestCount);
   const contextValue = getCurrentContextValue(pathname);
 
   useEffect(() => {
@@ -189,7 +202,12 @@ export function ManageShell({
                 )}
               >
                 <item.icon className="size-4" />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {item.badge ? (
+                  <span className="bg-primary/15 text-primary rounded-full px-2 py-0.5 text-[10px] font-semibold">
+                    {item.badge}
+                  </span>
+                ) : null}
               </Link>
             );
           })}

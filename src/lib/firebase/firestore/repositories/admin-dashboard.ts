@@ -7,6 +7,7 @@ export async function getAdminOverviewCounts() {
   const firestore = getFirebaseAdminFirestore();
   const [
     users,
+    requests,
     premiumUsers,
     artists,
     labels,
@@ -16,6 +17,11 @@ export async function getAdminOverviewCounts() {
     playlists,
   ] = await Promise.all([
     firestore.collection(collections.users).count().get(),
+    firestore
+      .collection(collections.applications)
+      .where("status", "in", ["pending", "under_review"])
+      .count()
+      .get(),
     firestore
       .collection(collections.users)
       .where("subscriptionPlan", "==", "premium")
@@ -34,6 +40,7 @@ export async function getAdminOverviewCounts() {
   ]);
   return {
     users: users.data().count,
+    requests: requests.data().count,
     premiumUsers: premiumUsers.data().count,
     artists: artists.data().count,
     labels: labels.data().count,

@@ -18,7 +18,8 @@ const artistStatuses = new Set<ArtistDocument["status"]>([
 function toArtistRecord(id: string, data: DocumentData): ArtistRecord {
   const artist = data as ArtistDocument;
   const status = artistStatuses.has(artist.status) ? artist.status : "active";
-  const claimStatus = artist.claimStatus === "claimed" ? "claimed" : "unclaimed";
+  const claimStatus =
+    artist.claimStatus === "claimed" ? "claimed" : "unclaimed";
 
   return {
     id,
